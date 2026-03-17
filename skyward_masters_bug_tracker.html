@@ -1,0 +1,672 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); font-size: 15px; color: var(--color-text-primary); }
+
+  .app { min-height: 600px; }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    background: var(--color-background-primary);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: #1D9E75; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 500; color: white;
+  }
+  .logo-text { font-size: 15px; font-weight: 500; }
+  .logo-sub { font-size: 12px; color: var(--color-text-secondary); }
+
+  .nav { display: flex; gap: 4px; }
+  .nav-btn {
+    padding: 6px 12px; border-radius: var(--border-radius-md);
+    border: 0.5px solid transparent; font-size: 13px; cursor: pointer;
+    background: transparent; color: var(--color-text-secondary);
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+  .nav-btn.active {
+    background: var(--color-background-secondary);
+    border-color: var(--color-border-secondary);
+    color: var(--color-text-primary);
+  }
+
+  .view { display: none; padding: 24px 20px; max-width: 780px; margin: 0 auto; }
+  .view.visible { display: block; }
+
+  .section-title { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; line-height: 1.5; }
+
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--color-text-secondary); }
+  input[type=text], textarea, select {
+    width: 100%; padding: 9px 12px; font-size: 14px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+  }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: none; border-color: #1D9E75;
+    box-shadow: 0 0 0 2px rgba(29,158,117,0.15);
+  }
+
+  .file-drop {
+    border: 0.5px dashed var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 20px; text-align: center; cursor: pointer;
+    font-size: 13px; color: var(--color-text-secondary);
+    transition: all 0.15s;
+  }
+  .file-drop:hover { border-color: #1D9E75; color: var(--color-text-primary); }
+  .file-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .file-pill {
+    font-size: 12px; padding: 3px 8px;
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 20px; color: var(--color-text-secondary);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .file-pill span { cursor: pointer; color: var(--color-text-tertiary); }
+  .file-pill span:hover { color: var(--color-text-danger); }
+
+  .severity-grid { display: flex; gap: 8px; }
+  .sev-btn {
+    flex: 1; padding: 8px; border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-tertiary);
+    font-size: 12px; cursor: pointer; text-align: center;
+    background: var(--color-background-primary);
+    color: var(--color-text-secondary);
+    transition: all 0.15s; font-family: var(--font-sans);
+  }
+  .sev-btn.selected { border-width: 1.5px; }
+  .sev-btn[data-sev="low"].selected { border-color: #1D9E75; color: #1D9E75; background: #E1F5EE; }
+  .sev-btn[data-sev="medium"].selected { border-color: #BA7517; color: #633806; background: #FAEEDA; }
+  .sev-btn[data-sev="high"].selected { border-color: #A32D2D; color: #501313; background: #FCEBEB; }
+  .sev-btn[data-sev="critical"].selected { border-color: #7F77DD; color: #26215C; background: #EEEDFE; }
+
+  .submit-btn {
+    width: 100%; padding: 10px; border-radius: var(--border-radius-md);
+    background: #1D9E75; color: white; border: none; font-size: 14px;
+    font-weight: 500; cursor: pointer; font-family: var(--font-sans);
+    transition: opacity 0.15s; margin-top: 8px;
+  }
+  .submit-btn:hover { opacity: 0.88; }
+
+  .success-box {
+    display: none; padding: 20px; border-radius: var(--border-radius-lg);
+    background: #E1F5EE; border: 0.5px solid #9FE1CB;
+    text-align: center; color: #085041;
+  }
+  .success-box.visible { display: block; }
+
+  .login-card {
+    max-width: 360px; margin: 40px auto;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 28px;
+  }
+  .login-error { font-size: 13px; color: var(--color-text-danger); margin-top: 8px; display: none; }
+
+  .dashboard-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+  }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 12px 14px;
+  }
+  .stat-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .stat-val { font-size: 22px; font-weight: 500; }
+
+  .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .controls input[type=text] { flex: 1; min-width: 160px; }
+  .controls select { width: auto; }
+
+  .bug-list { display: flex; flex-direction: column; gap: 8px; }
+  .bug-card {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 14px 16px;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .bug-card:hover { border-color: var(--color-border-secondary); }
+  .bug-card.selected { border: 1.5px solid #1D9E75; }
+  .bug-card.merged { opacity: 0.5; }
+  .bug-row { display: flex; align-items: flex-start; gap: 10px; }
+  .bug-main { flex: 1; min-width: 0; }
+  .bug-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bug-meta { font-size: 12px; color: var(--color-text-secondary); display: flex; gap: 10px; flex-wrap: wrap; }
+  .bug-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    font-weight: 500; display: inline-block;
+  }
+  .badge-low { background: #E1F5EE; color: #085041; }
+  .badge-medium { background: #FAEEDA; color: #633806; }
+  .badge-high { background: #FCEBEB; color: #501313; }
+  .badge-critical { background: #EEEDFE; color: #26215C; }
+  .badge-open { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+  .badge-in-progress { background: #E6F1FB; color: #0C447C; }
+  .badge-resolved { background: #EAF3DE; color: #27500A; }
+  .badge-merged { background: #F1EFE8; color: #444441; }
+
+  .icon-btn {
+    padding: 5px 8px; border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-tertiary);
+    background: transparent; cursor: pointer; font-size: 12px;
+    color: var(--color-text-secondary); font-family: var(--font-sans);
+    transition: all 0.12s;
+  }
+  .icon-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+  .icon-btn.danger:hover { border-color: var(--color-border-danger); color: var(--color-text-danger); background: var(--color-background-danger); }
+
+  .detail-panel {
+    position: fixed; display: none;
+    top: 0; right: 0; width: 420px; height: 100%;
+    background: var(--color-background-primary);
+    border-left: 0.5px solid var(--color-border-tertiary);
+    overflow-y: auto; z-index: 100; padding: 20px;
+  }
+  .detail-panel.open { display: block; }
+  .detail-close {
+    float: right; padding: 4px 8px; cursor: pointer;
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md); font-size: 13px;
+    background: transparent; color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+  }
+  .detail-close:hover { background: var(--color-background-secondary); }
+  .detail-field { margin-bottom: 16px; }
+  .detail-field-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .detail-field-val { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+  .detail-divider { height: 0.5px; background: var(--color-border-tertiary); margin: 16px 0; }
+
+  .merge-bar {
+    display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: 40px; padding: 10px 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    font-size: 13px; display: none; align-items: center; gap: 10px; z-index: 200;
+  }
+  .merge-bar.visible { display: flex; }
+
+  .logout-btn {
+    font-size: 12px; color: var(--color-text-secondary); cursor: pointer;
+    background: none; border: none; font-family: var(--font-sans);
+    padding: 4px 8px;
+  }
+  .logout-btn:hover { color: var(--color-text-primary); }
+
+  .empty-state {
+    text-align: center; padding: 48px 0;
+    color: var(--color-text-tertiary); font-size: 14px;
+  }
+</style>
+
+<div class="app">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">SM</div>
+      <div>
+        <div class="logo-text">Bug Tracker</div>
+        <div class="logo-sub">Skyward Masters</div>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn active" onclick="showView('submit')">Report a bug</button>
+      <button class="nav-btn" onclick="showView('staff')">Staff login</button>
+    </div>
+  </div>
+
+  <div class="view visible" id="view-submit">
+    <p class="section-title">Found a bug?</p>
+    <p class="section-sub">Help us improve Skyward Masters by reporting issues you encounter. All reports are reviewed by the team.</p>
+
+    <div id="submit-form">
+      <div class="form-group">
+        <label>Your name</label>
+        <input type="text" id="f-name" placeholder="e.g. Alex Nielsen">
+      </div>
+      <div class="form-group">
+        <label>Bug title</label>
+        <input type="text" id="f-title" placeholder="Short summary of the issue">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="f-category">
+          <option value="">Select a category</option>
+          <option>Gameplay</option>
+          <option>Networking / multiplayer</option>
+          <option>UI / HUD</option>
+          <option>Audio</option>
+          <option>Performance / crashes</option>
+          <option>Visuals / rendering</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Severity</label>
+        <div class="severity-grid">
+          <button class="sev-btn" data-sev="low" onclick="selectSev(this)">Low</button>
+          <button class="sev-btn" data-sev="medium" onclick="selectSev(this)">Medium</button>
+          <button class="sev-btn" data-sev="high" onclick="selectSev(this)">High</button>
+          <button class="sev-btn" data-sev="critical" onclick="selectSev(this)">Critical</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>How to reproduce</label>
+        <textarea id="f-repro" placeholder="Step-by-step instructions to reproduce the bug..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>What did you expect vs what happened?</label>
+        <textarea id="f-expected" placeholder="Expected: ...\nActual: ..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Attachments</label>
+        <div class="file-drop" onclick="document.getElementById('file-input').click()">
+          Click to attach screenshots, videos, or log files
+        </div>
+        <input type="file" id="file-input" multiple style="display:none" onchange="handleFiles(this)">
+        <div class="file-list" id="file-list"></div>
+      </div>
+      <button class="submit-btn" onclick="submitReport()">Submit bug report</button>
+    </div>
+
+    <div class="success-box" id="success-box">
+      <div style="font-size: 22px; margin-bottom: 8px;">Report submitted</div>
+      <div style="font-size: 14px; opacity: 0.8;">Thanks for helping make Skyward Masters better. The team will review your report.</div>
+      <button class="submit-btn" style="margin-top: 16px; max-width: 200px;" onclick="resetForm()">Submit another</button>
+    </div>
+  </div>
+
+  <div class="view" id="view-staff">
+    <div id="login-wrapper">
+      <div class="login-card">
+        <p class="section-title" style="margin-bottom: 4px;">Staff login</p>
+        <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 20px;">Trinor Entertainment team only</p>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="l-user" placeholder="your username" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="text" id="l-pass" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="login-error" id="login-error">Incorrect credentials. Try: admin / skyward</div>
+        <button class="submit-btn" onclick="doLogin()">Log in</button>
+        <p style="font-size: 12px; color: var(--color-text-tertiary); margin-top: 12px; text-align: center;">Demo credentials: admin / skyward</p>
+      </div>
+    </div>
+
+    <div id="dashboard" style="display:none">
+      <div class="dashboard-header">
+        <div>
+          <p class="section-title">All bug reports</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; color: var(--color-text-secondary);">Logged in as admin</span>
+          <button class="logout-btn" onclick="doLogout()">Log out</button>
+        </div>
+      </div>
+
+      <div class="stats-row" id="stats-row"></div>
+
+      <div class="controls">
+        <input type="text" id="search" placeholder="Search reports..." oninput="renderList()">
+        <select id="filter-sev" onchange="renderList()">
+          <option value="">All severities</option>
+          <option>low</option><option>medium</option><option>high</option><option>critical</option>
+        </select>
+        <select id="filter-status" onchange="renderList()">
+          <option value="">All statuses</option>
+          <option>open</option><option>in-progress</option><option>resolved</option><option>merged</option>
+        </select>
+        <select id="filter-cat" onchange="renderList()">
+          <option value="">All categories</option>
+          <option>Gameplay</option>
+          <option>Networking / multiplayer</option>
+          <option>UI / HUD</option>
+          <option>Audio</option>
+          <option>Performance / crashes</option>
+          <option>Visuals / rendering</option>
+          <option>Other</option>
+        </select>
+        <select id="sort-by" onchange="renderList()">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="sev-desc">Severity (highest)</option>
+          <option value="sev-asc">Severity (lowest)</option>
+        </select>
+      </div>
+
+      <div class="bug-list" id="bug-list"></div>
+      <div class="empty-state" id="empty-state" style="display:none">No reports match your filters.</div>
+    </div>
+  </div>
+</div>
+
+<div class="detail-panel" id="detail-panel">
+  <button class="detail-close" onclick="closeDetail()">Close</button>
+  <div id="detail-content"></div>
+</div>
+
+<div class="merge-bar" id="merge-bar">
+  <span id="merge-count">2 selected</span>
+  <button class="submit-btn" style="width:auto;padding:6px 14px;margin:0;font-size:13px;" onclick="doMerge()">Merge as duplicates</button>
+  <button class="icon-btn" onclick="clearSelection()">Clear</button>
+</div>
+
+<script>
+const SEV_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
+
+let bugs = [];
+let selectedSev = '';
+let attachedFiles = [];
+let selectedBugs = new Set();
+let openDetailId = null;
+
+function seed() {
+  const now = Date.now();
+  bugs = [
+    { id: 1, name: 'Mads Andersen', title: 'Player falls through map at spawn point B', category: 'Gameplay', severity: 'high', status: 'open', repro: '1. Start a match on Dust Arena\n2. Spawn at point B\n3. Character falls through floor immediately', expected: 'Expected: spawn on floor\nActual: fall through geometry', files: [], date: now - 86400000 * 2, mergedInto: null },
+    { id: 2, name: 'Sara Koch', title: 'Audio cuts out after respawn in 4v4 mode', category: 'Audio', severity: 'medium', status: 'open', repro: '1. Join a 4v4 lobby\n2. Die and wait for respawn\n3. Audio gone after respawn', expected: 'Audio should continue\nActual: complete silence until round ends', files: ['screenshot.png'], date: now - 86400000, mergedInto: null },
+    { id: 3, name: 'Tobias R.', title: 'Kill feed shows wrong player name', category: 'UI / HUD', severity: 'low', status: 'in-progress', repro: '1. Get a kill\n2. Check kill feed in top-right corner', expected: 'My username\nActual: shows opponent name as killer', files: [], date: now - 3600000 * 5, mergedInto: null },
+    { id: 4, name: 'Unknown', title: 'Game crashes when opening inventory during round end', category: 'Performance / crashes', severity: 'critical', status: 'open', repro: '1. Wait for round to end\n2. Immediately press Tab to open inventory\n3. Crash to desktop', expected: 'Inventory opens\nActual: crash with no error message', files: ['crash_log.txt', 'video.mp4'], date: now - 3600000 * 2, mergedInto: null },
+    { id: 5, name: 'Niels B.', title: 'Hitbox offset visible when ADS crouching', category: 'Gameplay', severity: 'medium', status: 'open', repro: '1. Crouch\n2. ADS (right click)\n3. Notice camera/hitbox misalignment', expected: 'Aligned hitbox\nActual: hitbox appears offset forward', files: ['clip.mp4'], date: now - 3600000 * 8, mergedInto: null },
+    { id: 6, name: 'Emma W.', title: 'Shield bar flickers when hit at exact 50% threshold', category: 'UI / HUD', severity: 'low', status: 'resolved', repro: '1. Take damage that brings shield to 50\n2. Watch the shield bar', expected: 'Smooth update\nActual: visible flicker frame', files: [], date: now - 86400000 * 4, mergedInto: null },
+  ];
+}
+
+function save() {
+  try { localStorage.setItem('sm_bugs', JSON.stringify(bugs)); } catch(e) {}
+}
+
+function load() {
+  try {
+    const d = localStorage.getItem('sm_bugs');
+    if (d) { bugs = JSON.parse(d); return; }
+  } catch(e) {}
+  seed();
+}
+
+load();
+
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('visible');
+  event.target.classList.add('active');
+  closeDetail();
+}
+
+function selectSev(btn) {
+  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedSev = btn.dataset.sev;
+}
+
+function handleFiles(input) {
+  for (const f of input.files) attachedFiles.push(f.name);
+  renderFileList();
+}
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  el.innerHTML = attachedFiles.map((f,i) =>
+    `<div class="file-pill">${f} <span onclick="removeFile(${i})">x</span></div>`
+  ).join('');
+}
+
+function removeFile(i) {
+  attachedFiles.splice(i, 1);
+  renderFileList();
+}
+
+function submitReport() {
+  const name = document.getElementById('f-name').value.trim() || 'Anonymous';
+  const title = document.getElementById('f-title').value.trim();
+  const category = document.getElementById('f-category').value;
+  const repro = document.getElementById('f-repro').value.trim();
+  const expected = document.getElementById('f-expected').value.trim();
+
+  if (!title) { document.getElementById('f-title').focus(); return; }
+
+  bugs.unshift({
+    id: Date.now(),
+    name, title, category: category || 'Other',
+    severity: selectedSev || 'medium',
+    status: 'open',
+    repro, expected,
+    files: [...attachedFiles],
+    date: Date.now(),
+    mergedInto: null
+  });
+  save();
+
+  document.getElementById('submit-form').style.display = 'none';
+  document.getElementById('success-box').classList.add('visible');
+}
+
+function resetForm() {
+  document.getElementById('submit-form').style.display = 'block';
+  document.getElementById('success-box').classList.remove('visible');
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-category').value = '';
+  document.getElementById('f-repro').value = '';
+  document.getElementById('f-expected').value = '';
+  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('selected'));
+  attachedFiles = [];
+  renderFileList();
+  selectedSev = '';
+}
+
+function doLogin() {
+  const u = document.getElementById('l-user').value.trim();
+  const p = document.getElementById('l-pass').value.trim();
+  const err = document.getElementById('login-error');
+  if (u === 'admin' && p === 'skyward') {
+    document.getElementById('login-wrapper').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    renderStats();
+    renderList();
+  } else {
+    err.style.display = 'block';
+  }
+}
+
+function doLogout() {
+  document.getElementById('login-wrapper').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('l-user').value = '';
+  document.getElementById('l-pass').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  closeDetail();
+  clearSelection();
+}
+
+function renderStats() {
+  const open = bugs.filter(b => b.status === 'open').length;
+  const inprog = bugs.filter(b => b.status === 'in-progress').length;
+  const resolved = bugs.filter(b => b.status === 'resolved').length;
+  const critical = bugs.filter(b => b.severity === 'critical' && b.status !== 'resolved' && b.status !== 'merged').length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Open</div><div class="stat-val">${open}</div></div>
+    <div class="stat-card"><div class="stat-label">In progress</div><div class="stat-val">${inprog}</div></div>
+    <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-val">${resolved}</div></div>
+    <div class="stat-card"><div class="stat-label">Critical</div><div class="stat-val" style="color:#A32D2D">${critical}</div></div>
+  `;
+}
+
+function getFiltered() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const fsev = document.getElementById('filter-sev').value;
+  const fstat = document.getElementById('filter-status').value;
+  const fcat = document.getElementById('filter-cat').value;
+  const sort = document.getElementById('sort-by').value;
+
+  let list = bugs.filter(b => {
+    if (fsev && b.severity !== fsev) return false;
+    if (fstat && b.status !== fstat) return false;
+    if (fcat && b.category !== fcat) return false;
+    if (search && !b.title.toLowerCase().includes(search) && !b.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  list.sort((a, b) => {
+    if (sort === 'date-desc') return b.date - a.date;
+    if (sort === 'date-asc') return a.date - b.date;
+    if (sort === 'sev-desc') return SEV_ORDER[b.severity] - SEV_ORDER[a.severity];
+    if (sort === 'sev-asc') return SEV_ORDER[a.severity] - SEV_ORDER[b.severity];
+    return 0;
+  });
+
+  return list;
+}
+
+function renderList() {
+  renderStats();
+  const list = getFiltered();
+  const container = document.getElementById('bug-list');
+  const empty = document.getElementById('empty-state');
+
+  if (!list.length) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  container.innerHTML = list.map(b => {
+    const merged = b.status === 'merged';
+    const ts = new Date(b.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const sel = selectedBugs.has(b.id) ? 'selected' : '';
+    const mclass = merged ? 'merged' : '';
+    return `<div class="bug-card ${sel} ${mclass}" id="card-${b.id}" onclick="openDetail(${b.id})">
+      <div class="bug-row">
+        <div style="padding-top:2px">
+          <input type="checkbox" ${sel ? 'checked' : ''} onclick="toggleSelect(event, ${b.id})" style="cursor:pointer">
+        </div>
+        <div class="bug-main">
+          <div class="bug-title">${b.title}</div>
+          <div class="bug-meta">
+            <span>${b.name}</span>
+            <span>${b.category}</span>
+            <span>${ts}</span>
+            ${b.files.length ? `<span>${b.files.length} file${b.files.length>1?'s':''}</span>` : ''}
+            ${b.mergedInto ? `<span>→ merged</span>` : ''}
+          </div>
+        </div>
+        <div class="bug-actions" onclick="event.stopPropagation()">
+          <span class="badge badge-${b.severity}">${b.severity}</span>
+          <span class="badge badge-${b.status.replace(' ','-')}">${b.status}</span>
+          <button class="icon-btn danger" onclick="deleteBug(${b.id})">Remove</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSelect(e, id) {
+  e.stopPropagation();
+  if (selectedBugs.has(id)) selectedBugs.delete(id);
+  else selectedBugs.add(id);
+  updateMergeBar();
+  renderList();
+}
+
+function clearSelection() {
+  selectedBugs.clear();
+  updateMergeBar();
+  renderList();
+}
+
+function updateMergeBar() {
+  const bar = document.getElementById('merge-bar');
+  if (selectedBugs.size >= 2) {
+    bar.classList.add('visible');
+    document.getElementById('merge-count').textContent = selectedBugs.size + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function doMerge() {
+  const ids = [...selectedBugs];
+  const primary = ids[0];
+  const rest = ids.slice(1);
+  rest.forEach(id => {
+    const b = bugs.find(x => x.id === id);
+    if (b) { b.status = 'merged'; b.mergedInto = primary; }
+  });
+  save();
+  clearSelection();
+  renderList();
+  if (openDetailId && rest.includes(openDetailId)) openDetail(primary);
+}
+
+function deleteBug(id) {
+  bugs = bugs.filter(b => b.id !== id);
+  save();
+  selectedBugs.delete(id);
+  updateMergeBar();
+  renderList();
+  if (openDetailId === id) closeDetail();
+}
+
+function openDetail(id) {
+  const b = bugs.find(x => x.id === id);
+  if (!b) return;
+  openDetailId = id;
+  const ts = new Date(b.date).toLocaleString('en-GB');
+
+  const statuses = ['open','in-progress','resolved','merged'];
+  const statusOpts = statuses.map(s =>
+    `<option value="${s}" ${b.status===s?'selected':''}>${s}</option>`
+  ).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:17px;font-weight:500;margin-bottom:6px;padding-right:60px">${b.title}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="badge badge-${b.severity}">${b.severity}</span>
+        <span class="badge badge-${b.status}">${b.status}</span>
+        <span class="badge badge-open">${b.category}</span>
+      </div>
+    </div>
+    <div class="detail-divider"></div>
+    <div class="detail-field"><div class="detail-field-label">Reporter</div><div class="detail-field-val">${b.name}</div></div>
+    <div class="detail-field"><div class="detail-field-label">Submitted</div><div class="detail-field-val">${ts}</div></div>
+    <div class="detail-field"><div class="detail-field-label">Status</div>
+      <select onchange="changeStatus(${b.id}, this.value)" style="width:auto;margin-top:4px">${statusOpts}</select>
+    </div>
+    <div class="detail-divider"></div>
+    <div class="detail-field"><div class="detail-field-label">How to reproduce</div><div class="detail-field-val">${b.repro || '—'}</div></div>
+    <div class="detail-field"><div class="detail-field-label">Expected vs actual</div><div class="detail-field-val">${b.expected || '—'}</div></div>
+    ${b.files.length ? `<div class="detail-field"><div class="detail-field-label">Attachments</div>
+      <div class="file-list">${b.files.map(f=>`<div class="file-pill">${f}</div>`).join('')}</div></div>` : ''}
+    ${b.mergedInto ? `<div style="margin-top:12px;font-size:13px;color:var(--color-text-secondary)">Merged into report #${b.mergedInto}</div>` : ''}
+    <div class="detail-divider"></div>
+    <button class="icon-btn danger" style="width:100%;justify-content:center" onclick="deleteBug(${b.id})">Remove this report</button>
+  `;
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function changeStatus(id, val) {
+  const b = bugs.find(x => x.id === id);
+  if (b) { b.status = val; save(); renderList(); openDetail(id); }
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  openDetailId = null;
+}
+</script>
