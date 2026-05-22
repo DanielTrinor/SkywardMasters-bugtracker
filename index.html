@@ -1,252 +1,294 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug Tracker — Skyward Masters</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: var(--font-sans); font-size: 15px; color: var(--color-text-primary); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .app { min-height: 600px; }
+  :root {
+    --bg: #0e0f11;
+    --bg2: #161719;
+    --bg3: #1e2023;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e9eb;
+    --text2: #8b8d93;
+    --text3: #55575e;
+    --accent: #1D9E75;
+    --accent-dim: rgba(29,158,117,0.15);
+    --accent-border: rgba(29,158,117,0.4);
+    --red: #e05252;
+    --red-dim: rgba(224,82,82,0.12);
+    --amber: #d4882a;
+    --amber-dim: rgba(212,136,42,0.12);
+    --purple: #8b7cf6;
+    --purple-dim: rgba(139,124,246,0.12);
+    --blue: #4a9eff;
+    --blue-dim: rgba(74,158,255,0.12);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
 
   .header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 0.5px solid var(--color-border-tertiary);
-    background: var(--color-background-primary);
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
   }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo-mark {
-    width: 28px; height: 28px; border-radius: 6px;
-    background: #1D9E75; display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 500; color: white;
+    width: 30px; height: 30px; border-radius: 7px;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; font-size: 13px; font-weight: 500; color: #fff;
+    font-family: 'DM Mono', monospace;
   }
-  .logo-text { font-size: 15px; font-weight: 500; }
-  .logo-sub { font-size: 12px; color: var(--color-text-secondary); }
+  .logo-name { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; }
+  .logo-sub { font-size: 11px; color: var(--text3); letter-spacing: 0.04em; text-transform: uppercase; }
 
-  .nav { display: flex; gap: 4px; }
+  .nav { display: flex; gap: 2px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px; }
   .nav-btn {
-    padding: 6px 12px; border-radius: var(--border-radius-md);
-    border: 0.5px solid transparent; font-size: 13px; cursor: pointer;
-    background: transparent; color: var(--color-text-secondary);
-    transition: all 0.15s;
+    padding: 5px 14px; border-radius: 6px; border: none;
+    font-size: 13px; cursor: pointer; background: transparent;
+    color: var(--text2); font-family: inherit; transition: all 0.15s;
   }
-  .nav-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
-  .nav-btn.active {
-    background: var(--color-background-secondary);
-    border-color: var(--color-border-secondary);
-    color: var(--color-text-primary);
-  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
 
-  .view { display: none; padding: 24px 20px; max-width: 780px; margin: 0 auto; }
+  .view { display: none; padding: 32px 24px; max-width: 800px; margin: 0 auto; }
   .view.visible { display: block; }
 
-  .section-title { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
-  .section-sub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; line-height: 1.5; }
+  h1 { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
 
-  .form-group { margin-bottom: 16px; }
-  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--color-text-secondary); }
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; letter-spacing: 0.03em; text-transform: uppercase; }
+
   input[type=text], textarea, select {
-    width: 100%; padding: 9px 12px; font-size: 14px;
-    border: 0.5px solid var(--color-border-secondary);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-primary);
-    color: var(--color-text-primary);
-    font-family: var(--font-sans);
+    width: 100%; padding: 9px 12px;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 14px; font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
   textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
-  input[type=text]:focus, textarea:focus, select:focus {
-    outline: none; border-color: #1D9E75;
-    box-shadow: 0 0 0 2px rgba(29,158,117,0.15);
+  select option { background: var(--bg2); }
+  input::placeholder, textarea::placeholder { color: var(--text3); }
+
+  .sev-grid { display: flex; gap: 6px; }
+  .sev-btn {
+    flex: 1; padding: 8px 6px; border-radius: var(--radius);
+    border: 1px solid var(--border2); font-size: 12px; cursor: pointer;
+    text-align: center; background: var(--bg2); color: var(--text2);
+    font-family: inherit; transition: all 0.15s; font-weight: 500;
   }
+  .sev-btn:hover { border-color: var(--border2); color: var(--text); }
+  .sev-btn.sel-low { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .sev-btn.sel-medium { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+  .sev-btn.sel-high { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .sev-btn.sel-critical { border-color: var(--purple); color: var(--purple); background: var(--purple-dim); }
 
   .file-drop {
-    border: 0.5px dashed var(--color-border-secondary);
-    border-radius: var(--border-radius-md);
-    padding: 20px; text-align: center; cursor: pointer;
-    font-size: 13px; color: var(--color-text-secondary);
-    transition: all 0.15s;
+    border: 1px dashed var(--border2); border-radius: var(--radius);
+    padding: 18px; text-align: center; cursor: pointer;
+    font-size: 13px; color: var(--text3); transition: all 0.15s;
   }
-  .file-drop:hover { border-color: #1D9E75; color: var(--color-text-primary); }
-  .file-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .file-pill {
-    font-size: 12px; padding: 3px 8px;
-    background: var(--color-background-secondary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: 20px; color: var(--color-text-secondary);
-    display: flex; align-items: center; gap: 4px;
+  .file-drop:hover { border-color: var(--accent); color: var(--text2); }
+  .file-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pill {
+    font-size: 11px; padding: 3px 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text2);
+    display: flex; align-items: center; gap: 5px;
   }
-  .file-pill span { cursor: pointer; color: var(--color-text-tertiary); }
-  .file-pill span:hover { color: var(--color-text-danger); }
+  .pill-x { cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; }
+  .pill-x:hover { color: var(--red); }
 
-  .severity-grid { display: flex; gap: 8px; }
-  .sev-btn {
-    flex: 1; padding: 8px; border-radius: var(--border-radius-md);
-    border: 0.5px solid var(--color-border-tertiary);
-    font-size: 12px; cursor: pointer; text-align: center;
-    background: var(--color-background-primary);
-    color: var(--color-text-secondary);
-    transition: all 0.15s; font-family: var(--font-sans);
+  .btn-primary {
+    width: 100%; padding: 10px; border-radius: var(--radius);
+    background: var(--accent); color: #fff; border: none;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    font-family: inherit; transition: opacity 0.15s; margin-top: 6px;
   }
-  .sev-btn.selected { border-width: 1.5px; }
-  .sev-btn[data-sev="low"].selected { border-color: #1D9E75; color: #1D9E75; background: #E1F5EE; }
-  .sev-btn[data-sev="medium"].selected { border-color: #BA7517; color: #633806; background: #FAEEDA; }
-  .sev-btn[data-sev="high"].selected { border-color: #A32D2D; color: #501313; background: #FCEBEB; }
-  .sev-btn[data-sev="critical"].selected { border-color: #7F77DD; color: #26215C; background: #EEEDFE; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .submit-btn {
-    width: 100%; padding: 10px; border-radius: var(--border-radius-md);
-    background: #1D9E75; color: white; border: none; font-size: 14px;
-    font-weight: 500; cursor: pointer; font-family: var(--font-sans);
-    transition: opacity 0.15s; margin-top: 8px;
+  .success {
+    display: none; padding: 24px; border-radius: var(--radius-lg);
+    background: var(--accent-dim); border: 1px solid var(--accent-border);
+    text-align: center;
   }
-  .submit-btn:hover { opacity: 0.88; }
+  .success.show { display: block; }
+  .success h2 { font-size: 18px; font-weight: 500; color: var(--accent); margin-bottom: 6px; }
+  .success p { font-size: 13px; color: var(--text2); }
 
-  .success-box {
-    display: none; padding: 20px; border-radius: var(--border-radius-lg);
-    background: #E1F5EE; border: 0.5px solid #9FE1CB;
-    text-align: center; color: #085041;
+  .login-wrap { max-width: 360px; margin: 48px auto; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 28px;
   }
-  .success-box.visible { display: block; }
+  .login-hint { font-size: 12px; color: var(--text3); text-align: center; margin-top: 12px; }
+  .login-err { font-size: 13px; color: var(--red); margin-top: 8px; display: none; }
 
-  .login-card {
-    max-width: 360px; margin: 40px auto;
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-lg);
-    padding: 28px;
+  .dash-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+  .stat {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px;
   }
-  .login-error { font-size: 13px; color: var(--color-text-danger); margin-top: 8px; display: none; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .stat-val { font-size: 24px; font-weight: 300; font-family: 'DM Mono', monospace; letter-spacing: -0.02em; }
+  .stat-val.red { color: var(--red); }
 
-  .dashboard-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
-  }
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-  .stat-card {
-    background: var(--color-background-secondary);
-    border-radius: var(--border-radius-md);
-    padding: 12px 14px;
-  }
-  .stat-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
-  .stat-val { font-size: 22px; font-weight: 500; }
-
-  .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-  .controls input[type=text] { flex: 1; min-width: 160px; }
+  .controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .controls input[type=text] { flex: 1; min-width: 150px; }
   .controls select { width: auto; }
 
-  .bug-list { display: flex; flex-direction: column; gap: 8px; }
+  .list { display: flex; flex-direction: column; gap: 6px; }
   .bug-card {
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-lg);
-    padding: 14px 16px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px 16px;
     cursor: pointer; transition: border-color 0.15s;
   }
-  .bug-card:hover { border-color: var(--color-border-secondary); }
-  .bug-card.selected { border: 1.5px solid #1D9E75; }
-  .bug-card.merged { opacity: 0.5; }
+  .bug-card:hover { border-color: var(--border2); }
+  .bug-card.sel { border-color: var(--accent); background: var(--accent-dim); }
+  .bug-card.merged { opacity: 0.4; }
   .bug-row { display: flex; align-items: flex-start; gap: 10px; }
-  .bug-main { flex: 1; min-width: 0; }
+  .bug-body { flex: 1; min-width: 0; }
   .bug-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bug-meta { font-size: 12px; color: var(--color-text-secondary); display: flex; gap: 10px; flex-wrap: wrap; }
-  .bug-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .bug-meta { font-size: 12px; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
+  .bug-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
   .badge {
     font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    font-weight: 500; display: inline-block;
+    font-weight: 500; display: inline-block; white-space: nowrap;
   }
-  .badge-low { background: #E1F5EE; color: #085041; }
-  .badge-medium { background: #FAEEDA; color: #633806; }
-  .badge-high { background: #FCEBEB; color: #501313; }
-  .badge-critical { background: #EEEDFE; color: #26215C; }
-  .badge-open { background: var(--color-background-secondary); color: var(--color-text-secondary); }
-  .badge-in-progress { background: #E6F1FB; color: #0C447C; }
-  .badge-resolved { background: #EAF3DE; color: #27500A; }
-  .badge-merged { background: #F1EFE8; color: #444441; }
+  .b-low { background: var(--accent-dim); color: var(--accent); }
+  .b-medium { background: var(--amber-dim); color: var(--amber); }
+  .b-high { background: var(--red-dim); color: var(--red); }
+  .b-critical { background: var(--purple-dim); color: var(--purple); }
+  .b-open { background: var(--bg3); color: var(--text2); }
+  .b-in-progress { background: var(--blue-dim); color: var(--blue); }
+  .b-resolved { background: var(--accent-dim); color: var(--accent); }
+  .b-merged { background: var(--bg3); color: var(--text3); }
 
   .icon-btn {
-    padding: 5px 8px; border-radius: var(--border-radius-md);
-    border: 0.5px solid var(--color-border-tertiary);
-    background: transparent; cursor: pointer; font-size: 12px;
-    color: var(--color-text-secondary); font-family: var(--font-sans);
-    transition: all 0.12s;
+    padding: 5px 10px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: transparent;
+    cursor: pointer; font-size: 12px; color: var(--text2);
+    font-family: inherit; transition: all 0.12s; white-space: nowrap;
   }
-  .icon-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
-  .icon-btn.danger:hover { border-color: var(--color-border-danger); color: var(--color-text-danger); background: var(--color-background-danger); }
+  .icon-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
+  .icon-btn.del:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .logout-btn { background: none; border: none; font-size: 12px; color: var(--text3); cursor: pointer; font-family: inherit; padding: 4px 8px; }
+  .logout-btn:hover { color: var(--text2); }
 
-  .detail-panel {
-    position: fixed; display: none;
-    top: 0; right: 0; width: 420px; height: 100%;
-    background: var(--color-background-primary);
-    border-left: 0.5px solid var(--color-border-tertiary);
+  .panel {
+    position: fixed; top: 0; right: 0; width: 420px; height: 100vh;
+    background: var(--bg2); border-left: 1px solid var(--border2);
     overflow-y: auto; z-index: 100; padding: 20px;
+    transform: translateX(100%); transition: transform 0.2s ease;
   }
-  .detail-panel.open { display: block; }
-  .detail-close {
-    float: right; padding: 4px 8px; cursor: pointer;
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-md); font-size: 13px;
-    background: transparent; color: var(--color-text-secondary);
-    font-family: var(--font-sans);
+  .panel.open { transform: translateX(0); }
+  .panel-close {
+    float: right; padding: 4px 10px; cursor: pointer;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12px; background: transparent; color: var(--text2);
+    font-family: inherit;
   }
-  .detail-close:hover { background: var(--color-background-secondary); }
-  .detail-field { margin-bottom: 16px; }
-  .detail-field-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-  .detail-field-val { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
-  .detail-divider { height: 0.5px; background: var(--color-border-tertiary); margin: 16px 0; }
+  .panel-close:hover { background: var(--bg3); color: var(--text); }
+  .panel-title { font-size: 16px; font-weight: 500; margin-bottom: 6px; padding-right: 60px; line-height: 1.4; }
+  .panel-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 16px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .field-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .field-val { font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: var(--text2); }
 
   .merge-bar {
-    display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-secondary);
-    border-radius: 40px; padding: 10px 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    font-size: 13px; display: none; align-items: center; gap: 10px; z-index: 200;
+    display: none; position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 40px; padding: 8px 16px;
+    font-size: 13px; align-items: center; gap: 10px; z-index: 200;
   }
-  .merge-bar.visible { display: flex; }
+  .merge-bar.show { display: flex; }
 
-  .logout-btn {
-    font-size: 12px; color: var(--color-text-secondary); cursor: pointer;
-    background: none; border: none; font-family: var(--font-sans);
-    padding: 4px 8px;
+  .empty { text-align: center; padding: 56px 0; color: var(--text3); font-size: 13px; }
+
+  .loading { text-align: center; padding: 40px; color: var(--text3); font-size: 13px; }
+  .dot-loader::after { content: ''; animation: dots 1.2s infinite; }
+  @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 10px 16px;
+    font-size: 13px; z-index: 999; opacity: 0;
+    transform: translateY(8px); transition: all 0.2s;
+    pointer-events: none;
   }
-  .logout-btn:hover { color: var(--color-text-primary); }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.err { border-color: var(--red); color: var(--red); }
 
-  .empty-state {
-    text-align: center; padding: 48px 0;
-    color: var(--color-text-tertiary); font-size: 14px;
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .panel { width: 100%; }
+    .bug-right { flex-direction: column; align-items: flex-end; }
   }
 </style>
+</head>
+<body>
 
-<div class="app">
-  <div class="header">
-    <div class="logo">
-      <div class="logo-mark">SM</div>
-      <div>
-        <div class="logo-text">Bug Tracker</div>
-        <div class="logo-sub">Skyward Masters</div>
-      </div>
-    </div>
-    <div class="nav">
-      <button class="nav-btn active" onclick="showView('submit')">Report a bug</button>
-      <button class="nav-btn" onclick="showView('staff')">Staff login</button>
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">SM</div>
+    <div>
+      <div class="logo-name">Bug Tracker</div>
+      <div class="logo-sub">Skyward Masters</div>
     </div>
   </div>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showView('submit', this)">Report a bug</button>
+    <button class="nav-btn" onclick="showView('staff', this)">Staff login</button>
+  </div>
+</div>
 
-  <div class="view visible" id="view-submit">
-    <p class="section-title">Found a bug?</p>
-    <p class="section-sub">Help us improve Skyward Masters by reporting issues you encounter. All reports are reviewed by the team.</p>
+<!-- SUBMIT VIEW -->
+<div class="view visible" id="view-submit">
+  <h1>Found a bug?</h1>
+  <p class="subtitle">Help improve Skyward Masters by reporting issues. All reports are reviewed by the team.</p>
 
-    <div id="submit-form">
-      <div class="form-group">
-        <label>Your name</label>
-        <input type="text" id="f-name" placeholder="e.g. Alex Nielsen">
-      </div>
-      <div class="form-group">
-        <label>Bug title</label>
-        <input type="text" id="f-title" placeholder="Short summary of the issue">
-      </div>
+  <div id="submit-form">
+    <div class="form-group">
+      <label>Your name</label>
+      <input type="text" id="f-name" placeholder="e.g. Alex Nielsen">
+    </div>
+    <div class="form-group">
+      <label>Bug title</label>
+      <input type="text" id="f-title" placeholder="Short summary of the issue">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group">
         <label>Category</label>
-        <select id="f-category">
-          <option value="">Select a category</option>
+        <select id="f-cat">
+          <option value="">Select category</option>
           <option>Gameplay</option>
           <option>Networking / multiplayer</option>
           <option>UI / HUD</option>
@@ -258,415 +300,396 @@
       </div>
       <div class="form-group">
         <label>Severity</label>
-        <div class="severity-grid">
-          <button class="sev-btn" data-sev="low" onclick="selectSev(this)">Low</button>
-          <button class="sev-btn" data-sev="medium" onclick="selectSev(this)">Medium</button>
-          <button class="sev-btn" data-sev="high" onclick="selectSev(this)">High</button>
-          <button class="sev-btn" data-sev="critical" onclick="selectSev(this)">Critical</button>
+        <div class="sev-grid">
+          <button class="sev-btn" data-s="low" onclick="pickSev(this)">Low</button>
+          <button class="sev-btn" data-s="medium" onclick="pickSev(this)">Med</button>
+          <button class="sev-btn" data-s="high" onclick="pickSev(this)">High</button>
+          <button class="sev-btn" data-s="critical" onclick="pickSev(this)">Crit</button>
         </div>
       </div>
-      <div class="form-group">
-        <label>How to reproduce</label>
-        <textarea id="f-repro" placeholder="Step-by-step instructions to reproduce the bug..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>What did you expect vs what happened?</label>
-        <textarea id="f-expected" placeholder="Expected: ...\nActual: ..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>Attachments</label>
-        <div class="file-drop" onclick="document.getElementById('file-input').click()">
-          Click to attach screenshots, videos, or log files
-        </div>
-        <input type="file" id="file-input" multiple style="display:none" onchange="handleFiles(this)">
-        <div class="file-list" id="file-list"></div>
-      </div>
-      <button class="submit-btn" onclick="submitReport()">Submit bug report</button>
     </div>
-
-    <div class="success-box" id="success-box">
-      <div style="font-size: 22px; margin-bottom: 8px;">Report submitted</div>
-      <div style="font-size: 14px; opacity: 0.8;">Thanks for helping make Skyward Masters better. The team will review your report.</div>
-      <button class="submit-btn" style="margin-top: 16px; max-width: 200px;" onclick="resetForm()">Submit another</button>
+    <div class="form-group">
+      <label>How to reproduce</label>
+      <textarea id="f-repro" placeholder="Step-by-step instructions to reproduce the bug..."></textarea>
     </div>
+    <div class="form-group">
+      <label>Expected vs actual</label>
+      <textarea id="f-expected" placeholder="Expected: ...\nActual: ..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Attachments (filenames only)</label>
+      <div class="file-drop" onclick="document.getElementById('fi').click()">Click to attach screenshots, videos or log files</div>
+      <input type="file" id="fi" multiple style="display:none" onchange="addFiles(this)">
+      <div class="file-pills" id="pills"></div>
+    </div>
+    <button class="btn-primary" id="submit-btn" onclick="submitBug()">Submit bug report</button>
   </div>
 
-  <div class="view" id="view-staff">
-    <div id="login-wrapper">
-      <div class="login-card">
-        <p class="section-title" style="margin-bottom: 4px;">Staff login</p>
-        <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 20px;">Trinor Entertainment team only</p>
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="l-user" placeholder="your username" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="text" id="l-pass" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <div class="login-error" id="login-error">Incorrect credentials. Try: admin / skyward</div>
-        <button class="submit-btn" onclick="doLogin()">Log in</button>
-        <p style="font-size: 12px; color: var(--color-text-tertiary); margin-top: 12px; text-align: center;">Demo credentials: admin / skyward</p>
-      </div>
-    </div>
-
-    <div id="dashboard" style="display:none">
-      <div class="dashboard-header">
-        <div>
-          <p class="section-title">All bug reports</p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 13px; color: var(--color-text-secondary);">Logged in as admin</span>
-          <button class="logout-btn" onclick="doLogout()">Log out</button>
-        </div>
-      </div>
-
-      <div class="stats-row" id="stats-row"></div>
-
-      <div class="controls">
-        <input type="text" id="search" placeholder="Search reports..." oninput="renderList()">
-        <select id="filter-sev" onchange="renderList()">
-          <option value="">All severities</option>
-          <option>low</option><option>medium</option><option>high</option><option>critical</option>
-        </select>
-        <select id="filter-status" onchange="renderList()">
-          <option value="">All statuses</option>
-          <option>open</option><option>in-progress</option><option>resolved</option><option>merged</option>
-        </select>
-        <select id="filter-cat" onchange="renderList()">
-          <option value="">All categories</option>
-          <option>Gameplay</option>
-          <option>Networking / multiplayer</option>
-          <option>UI / HUD</option>
-          <option>Audio</option>
-          <option>Performance / crashes</option>
-          <option>Visuals / rendering</option>
-          <option>Other</option>
-        </select>
-        <select id="sort-by" onchange="renderList()">
-          <option value="date-desc">Newest first</option>
-          <option value="date-asc">Oldest first</option>
-          <option value="sev-desc">Severity (highest)</option>
-          <option value="sev-asc">Severity (lowest)</option>
-        </select>
-      </div>
-
-      <div class="bug-list" id="bug-list"></div>
-      <div class="empty-state" id="empty-state" style="display:none">No reports match your filters.</div>
-    </div>
+  <div class="success" id="success">
+    <h2>Report submitted</h2>
+    <p>Thanks for helping make Skyward Masters better. The team will review your report.</p>
+    <button class="btn-primary" style="max-width:180px;margin:16px auto 0" onclick="resetForm()">Submit another</button>
   </div>
 </div>
 
-<div class="detail-panel" id="detail-panel">
-  <button class="detail-close" onclick="closeDetail()">Close</button>
-  <div id="detail-content"></div>
+<!-- STAFF VIEW -->
+<div class="view" id="view-staff">
+  <div id="login-wrap" class="login-wrap">
+    <div class="card">
+      <h1 style="margin-bottom:4px">Staff login</h1>
+      <p class="subtitle" style="margin-bottom:20px">Trinor Entertainment team only</p>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="l-user" placeholder="username" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="text" id="l-pass" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-err" id="login-err">Incorrect credentials.</div>
+      <button class="btn-primary" onclick="doLogin()">Log in</button>
+      <p class="login-hint">Demo: admin / skyward</p>
+    </div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <div class="dash-top">
+      <div>
+        <h1>All bug reports</h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text3)">Logged in as admin</span>
+        <button class="logout-btn" onclick="doLogout()">Log out</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search reports..." oninput="renderList()">
+      <select id="fs" onchange="renderList()">
+        <option value="">All severities</option>
+        <option>low</option><option>medium</option><option>high</option><option>critical</option>
+      </select>
+      <select id="fst" onchange="renderList()">
+        <option value="">All statuses</option>
+        <option>open</option><option>in-progress</option><option>resolved</option><option>merged</option>
+      </select>
+      <select id="fc" onchange="renderList()">
+        <option value="">All categories</option>
+        <option>Gameplay</option>
+        <option>Networking / multiplayer</option>
+        <option>UI / HUD</option>
+        <option>Audio</option>
+        <option>Performance / crashes</option>
+        <option>Visuals / rendering</option>
+        <option>Other</option>
+      </select>
+      <select id="sort" onchange="renderList()">
+        <option value="date-desc">Newest first</option>
+        <option value="date-asc">Oldest first</option>
+        <option value="sev-desc">Severity ↓</option>
+        <option value="sev-asc">Severity ↑</option>
+      </select>
+    </div>
+
+    <div class="list" id="list"></div>
+    <div class="empty" id="empty" style="display:none">No reports match your filters.</div>
+    <div class="loading dot-loader" id="loading" style="display:none">Loading</div>
+  </div>
 </div>
 
+<!-- DETAIL PANEL -->
+<div class="panel" id="panel">
+  <button class="panel-close" onclick="closePanel()">Close</button>
+  <div id="panel-content"></div>
+</div>
+
+<!-- MERGE BAR -->
 <div class="merge-bar" id="merge-bar">
   <span id="merge-count">2 selected</span>
-  <button class="submit-btn" style="width:auto;padding:6px 14px;margin:0;font-size:13px;" onclick="doMerge()">Merge as duplicates</button>
-  <button class="icon-btn" onclick="clearSelection()">Clear</button>
+  <button class="btn-primary" style="width:auto;padding:6px 16px;margin:0;font-size:13px" onclick="doMerge()">Merge as duplicates</button>
+  <button class="icon-btn" onclick="clearSel()">Clear</button>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-const SEV_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
+const SUPA_URL = 'https://jzrkmegsnxknfubhdoqf.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
 
+const SEV = { low:1, medium:2, high:3, critical:4 };
 let bugs = [];
-let selectedSev = '';
-let attachedFiles = [];
-let selectedBugs = new Set();
-let openDetailId = null;
+let selSev = '';
+let files = [];
+let selected = new Set();
+let openId = null;
 
-function seed() {
-  const now = Date.now();
-  bugs = [
-    { id: 1, name: 'Mads Andersen', title: 'Player falls through map at spawn point B', category: 'Gameplay', severity: 'high', status: 'open', repro: '1. Start a match on Dust Arena\n2. Spawn at point B\n3. Character falls through floor immediately', expected: 'Expected: spawn on floor\nActual: fall through geometry', files: [], date: now - 86400000 * 2, mergedInto: null },
-    { id: 2, name: 'Sara Koch', title: 'Audio cuts out after respawn in 4v4 mode', category: 'Audio', severity: 'medium', status: 'open', repro: '1. Join a 4v4 lobby\n2. Die and wait for respawn\n3. Audio gone after respawn', expected: 'Audio should continue\nActual: complete silence until round ends', files: ['screenshot.png'], date: now - 86400000, mergedInto: null },
-    { id: 3, name: 'Tobias R.', title: 'Kill feed shows wrong player name', category: 'UI / HUD', severity: 'low', status: 'in-progress', repro: '1. Get a kill\n2. Check kill feed in top-right corner', expected: 'My username\nActual: shows opponent name as killer', files: [], date: now - 3600000 * 5, mergedInto: null },
-    { id: 4, name: 'Unknown', title: 'Game crashes when opening inventory during round end', category: 'Performance / crashes', severity: 'critical', status: 'open', repro: '1. Wait for round to end\n2. Immediately press Tab to open inventory\n3. Crash to desktop', expected: 'Inventory opens\nActual: crash with no error message', files: ['crash_log.txt', 'video.mp4'], date: now - 3600000 * 2, mergedInto: null },
-    { id: 5, name: 'Niels B.', title: 'Hitbox offset visible when ADS crouching', category: 'Gameplay', severity: 'medium', status: 'open', repro: '1. Crouch\n2. ADS (right click)\n3. Notice camera/hitbox misalignment', expected: 'Aligned hitbox\nActual: hitbox appears offset forward', files: ['clip.mp4'], date: now - 3600000 * 8, mergedInto: null },
-    { id: 6, name: 'Emma W.', title: 'Shield bar flickers when hit at exact 50% threshold', category: 'UI / HUD', severity: 'low', status: 'resolved', repro: '1. Take damage that brings shield to 50\n2. Watch the shield bar', expected: 'Smooth update\nActual: visible flicker frame', files: [], date: now - 86400000 * 4, mergedInto: null },
-  ];
+async function loadBugs() {
+  const { data, error } = await db.from('bugreports').select('*').order('date', { ascending: false });
+  if (error) { toast('Failed to load reports', true); return; }
+  bugs = data || [];
 }
 
-function save() {
-  try { localStorage.setItem('sm_bugs', JSON.stringify(bugs)); } catch(e) {}
-}
-
-function load() {
-  try {
-    const d = localStorage.getItem('sm_bugs');
-    if (d) { bugs = JSON.parse(d); return; }
-  } catch(e) {}
-  seed();
-}
-
-load();
-
-function showView(v) {
+function showView(v, btn) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('visible'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('view-' + v).classList.add('visible');
-  event.target.classList.add('active');
-  closeDetail();
+  if (btn) btn.classList.add('active');
+  closePanel();
 }
 
-function selectSev(btn) {
-  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedSev = btn.dataset.sev;
+function pickSev(btn) {
+  document.querySelectorAll('.sev-btn').forEach(b => b.className = 'sev-btn');
+  btn.classList.add('sel-' + btn.dataset.s);
+  selSev = btn.dataset.s;
 }
 
-function handleFiles(input) {
-  for (const f of input.files) attachedFiles.push(f.name);
-  renderFileList();
+function addFiles(input) {
+  for (const f of input.files) if (!files.includes(f.name)) files.push(f.name);
+  renderPills();
 }
 
-function renderFileList() {
-  const el = document.getElementById('file-list');
-  el.innerHTML = attachedFiles.map((f,i) =>
-    `<div class="file-pill">${f} <span onclick="removeFile(${i})">x</span></div>`
+function renderPills() {
+  document.getElementById('pills').innerHTML = files.map((f,i) =>
+    `<div class="pill">${f}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`
   ).join('');
 }
 
-function removeFile(i) {
-  attachedFiles.splice(i, 1);
-  renderFileList();
-}
+function removeFile(i) { files.splice(i,1); renderPills(); }
 
-function submitReport() {
-  const name = document.getElementById('f-name').value.trim() || 'Anonymous';
+async function submitBug() {
   const title = document.getElementById('f-title').value.trim();
-  const category = document.getElementById('f-category').value;
-  const repro = document.getElementById('f-repro').value.trim();
-  const expected = document.getElementById('f-expected').value.trim();
-
+  const name = document.getElementById('f-name').value.trim() || 'Anonymous';
   if (!title) { document.getElementById('f-title').focus(); return; }
 
-  bugs.unshift({
-    id: Date.now(),
-    name, title, category: category || 'Other',
-    severity: selectedSev || 'medium',
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+
+  const { error } = await db.from('bugreports').insert({
+    title,
+    name,
+    category: document.getElementById('f-cat').value || 'Other',
+    severity: selSev || 'medium',
     status: 'open',
-    repro, expected,
-    files: [...attachedFiles],
-    date: Date.now(),
-    mergedInto: null
+    repro: document.getElementById('f-repro').value.trim(),
+    expected: document.getElementById('f-expected').value.trim(),
+    files: files.join(','),
+    merged_into: null,
+    date: Date.now()
   });
-  save();
+
+  btn.disabled = false; btn.textContent = 'Submit bug report';
+
+  if (error) { toast('Failed to submit. Try again.', true); return; }
 
   document.getElementById('submit-form').style.display = 'none';
-  document.getElementById('success-box').classList.add('visible');
+  document.getElementById('success').classList.add('show');
 }
 
 function resetForm() {
   document.getElementById('submit-form').style.display = 'block';
-  document.getElementById('success-box').classList.remove('visible');
-  document.getElementById('f-name').value = '';
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-category').value = '';
-  document.getElementById('f-repro').value = '';
-  document.getElementById('f-expected').value = '';
-  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('selected'));
-  attachedFiles = [];
-  renderFileList();
-  selectedSev = '';
+  document.getElementById('success').classList.remove('show');
+  ['f-name','f-title','f-repro','f-expected'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-cat').value = '';
+  document.querySelectorAll('.sev-btn').forEach(b => b.className = 'sev-btn');
+  selSev = ''; files = []; renderPills();
 }
 
 function doLogin() {
   const u = document.getElementById('l-user').value.trim();
   const p = document.getElementById('l-pass').value.trim();
-  const err = document.getElementById('login-error');
   if (u === 'admin' && p === 'skyward') {
-    document.getElementById('login-wrapper').style.display = 'none';
+    document.getElementById('login-wrap').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    renderStats();
-    renderList();
+    fetchAndRender();
   } else {
-    err.style.display = 'block';
+    document.getElementById('login-err').style.display = 'block';
   }
 }
 
 function doLogout() {
-  document.getElementById('login-wrapper').style.display = 'block';
+  document.getElementById('login-wrap').style.display = 'block';
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('l-user').value = '';
   document.getElementById('l-pass').value = '';
-  document.getElementById('login-error').style.display = 'none';
-  closeDetail();
-  clearSelection();
+  document.getElementById('login-err').style.display = 'none';
+  closePanel(); clearSel();
+}
+
+async function fetchAndRender() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('list').innerHTML = '';
+  await loadBugs();
+  document.getElementById('loading').style.display = 'none';
+  renderStats(); renderList();
 }
 
 function renderStats() {
   const open = bugs.filter(b => b.status === 'open').length;
-  const inprog = bugs.filter(b => b.status === 'in-progress').length;
-  const resolved = bugs.filter(b => b.status === 'resolved').length;
-  const critical = bugs.filter(b => b.severity === 'critical' && b.status !== 'resolved' && b.status !== 'merged').length;
-  document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Open</div><div class="stat-val">${open}</div></div>
-    <div class="stat-card"><div class="stat-label">In progress</div><div class="stat-val">${inprog}</div></div>
-    <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-val">${resolved}</div></div>
-    <div class="stat-card"><div class="stat-label">Critical</div><div class="stat-val" style="color:#A32D2D">${critical}</div></div>
+  const inp = bugs.filter(b => b.status === 'in-progress').length;
+  const res = bugs.filter(b => b.status === 'resolved').length;
+  const crit = bugs.filter(b => b.severity === 'critical' && b.status !== 'resolved' && b.status !== 'merged').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Open</div><div class="stat-val">${open}</div></div>
+    <div class="stat"><div class="stat-label">In progress</div><div class="stat-val">${inp}</div></div>
+    <div class="stat"><div class="stat-label">Resolved</div><div class="stat-val">${res}</div></div>
+    <div class="stat"><div class="stat-label">Critical</div><div class="stat-val red">${crit}</div></div>
   `;
 }
 
 function getFiltered() {
-  const search = document.getElementById('search').value.toLowerCase();
-  const fsev = document.getElementById('filter-sev').value;
-  const fstat = document.getElementById('filter-status').value;
-  const fcat = document.getElementById('filter-cat').value;
-  const sort = document.getElementById('sort-by').value;
+  const q = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('fs').value;
+  const fst = document.getElementById('fst').value;
+  const fc = document.getElementById('fc').value;
+  const sort = document.getElementById('sort').value;
 
   let list = bugs.filter(b => {
-    if (fsev && b.severity !== fsev) return false;
-    if (fstat && b.status !== fstat) return false;
-    if (fcat && b.category !== fcat) return false;
-    if (search && !b.title.toLowerCase().includes(search) && !b.name.toLowerCase().includes(search)) return false;
+    if (fs && b.severity !== fs) return false;
+    if (fst && b.status !== fst) return false;
+    if (fc && b.category !== fc) return false;
+    if (q && !b.title.toLowerCase().includes(q) && !(b.name||'').toLowerCase().includes(q)) return false;
     return true;
   });
 
-  list.sort((a, b) => {
-    if (sort === 'date-desc') return b.date - a.date;
-    if (sort === 'date-asc') return a.date - b.date;
-    if (sort === 'sev-desc') return SEV_ORDER[b.severity] - SEV_ORDER[a.severity];
-    if (sort === 'sev-asc') return SEV_ORDER[a.severity] - SEV_ORDER[b.severity];
+  list.sort((a,b) => {
+    if (sort==='date-desc') return b.date - a.date;
+    if (sort==='date-asc') return a.date - b.date;
+    if (sort==='sev-desc') return (SEV[b.severity]||0)-(SEV[a.severity]||0);
+    if (sort==='sev-asc') return (SEV[a.severity]||0)-(SEV[b.severity]||0);
     return 0;
   });
-
   return list;
 }
 
 function renderList() {
-  renderStats();
   const list = getFiltered();
-  const container = document.getElementById('bug-list');
-  const empty = document.getElementById('empty-state');
+  const el = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  if (!list.length) { el.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
 
-  if (!list.length) { container.innerHTML = ''; empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-
-  container.innerHTML = list.map(b => {
-    const merged = b.status === 'merged';
-    const ts = new Date(b.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const sel = selectedBugs.has(b.id) ? 'selected' : '';
-    const mclass = merged ? 'merged' : '';
-    return `<div class="bug-card ${sel} ${mclass}" id="card-${b.id}" onclick="openDetail(${b.id})">
+  el.innerHTML = list.map(b => {
+    const ts = new Date(b.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const sel = selected.has(b.id) ? 'sel' : '';
+    const mclass = b.status==='merged' ? 'merged' : '';
+    const fc = (b.files||'').split(',').filter(Boolean).length;
+    return `<div class="bug-card ${sel} ${mclass}" id="card-${b.id}" onclick="openPanel(${b.id})">
       <div class="bug-row">
-        <div style="padding-top:2px">
-          <input type="checkbox" ${sel ? 'checked' : ''} onclick="toggleSelect(event, ${b.id})" style="cursor:pointer">
-        </div>
-        <div class="bug-main">
+        <input type="checkbox" ${sel?'checked':''} onclick="toggleSel(event,${b.id})" style="cursor:pointer;margin-top:3px;flex-shrink:0">
+        <div class="bug-body">
           <div class="bug-title">${b.title}</div>
           <div class="bug-meta">
-            <span>${b.name}</span>
-            <span>${b.category}</span>
+            <span>${b.name||'Anonymous'}</span>
+            <span>${b.category||''}</span>
             <span>${ts}</span>
-            ${b.files.length ? `<span>${b.files.length} file${b.files.length>1?'s':''}</span>` : ''}
-            ${b.mergedInto ? `<span>→ merged</span>` : ''}
+            ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
           </div>
         </div>
-        <div class="bug-actions" onclick="event.stopPropagation()">
-          <span class="badge badge-${b.severity}">${b.severity}</span>
-          <span class="badge badge-${b.status.replace(' ','-')}">${b.status}</span>
-          <button class="icon-btn danger" onclick="deleteBug(${b.id})">Remove</button>
+        <div class="bug-right" onclick="event.stopPropagation()">
+          <span class="badge b-${b.severity}">${b.severity}</span>
+          <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status||'open'}</span>
+          <button class="icon-btn del" onclick="deleteBug(${b.id})">Remove</button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function toggleSelect(e, id) {
+function toggleSel(e, id) {
   e.stopPropagation();
-  if (selectedBugs.has(id)) selectedBugs.delete(id);
-  else selectedBugs.add(id);
-  updateMergeBar();
-  renderList();
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+  updateMergeBar(); renderList();
 }
 
-function clearSelection() {
-  selectedBugs.clear();
-  updateMergeBar();
-  renderList();
-}
+function clearSel() { selected.clear(); updateMergeBar(); renderList(); }
 
 function updateMergeBar() {
   const bar = document.getElementById('merge-bar');
-  if (selectedBugs.size >= 2) {
-    bar.classList.add('visible');
-    document.getElementById('merge-count').textContent = selectedBugs.size + ' selected';
-  } else {
-    bar.classList.remove('visible');
-  }
+  if (selected.size >= 2) {
+    bar.classList.add('show');
+    document.getElementById('merge-count').textContent = selected.size + ' selected';
+  } else bar.classList.remove('show');
 }
 
-function doMerge() {
-  const ids = [...selectedBugs];
+async function doMerge() {
+  const ids = [...selected];
   const primary = ids[0];
   const rest = ids.slice(1);
-  rest.forEach(id => {
-    const b = bugs.find(x => x.id === id);
-    if (b) { b.status = 'merged'; b.mergedInto = primary; }
-  });
-  save();
-  clearSelection();
-  renderList();
-  if (openDetailId && rest.includes(openDetailId)) openDetail(primary);
+  for (const id of rest) {
+    await db.from('bugreports').update({ status: 'merged', merged_into: primary }).eq('id', id);
+  }
+  toast('Merged ' + rest.length + ' report' + (rest.length>1?'s':'') + ' into #' + primary);
+  clearSel(); await fetchAndRender();
+  if (openId && rest.includes(openId)) openPanel(primary);
 }
 
-function deleteBug(id) {
+async function deleteBug(id) {
+  await db.from('bugreports').delete().eq('id', id);
   bugs = bugs.filter(b => b.id !== id);
-  save();
-  selectedBugs.delete(id);
-  updateMergeBar();
-  renderList();
-  if (openDetailId === id) closeDetail();
+  selected.delete(id); updateMergeBar();
+  renderStats(); renderList();
+  if (openId === id) closePanel();
+  toast('Report removed');
 }
 
-function openDetail(id) {
+function openPanel(id) {
   const b = bugs.find(x => x.id === id);
   if (!b) return;
-  openDetailId = id;
+  openId = id;
   const ts = new Date(b.date).toLocaleString('en-GB');
-
   const statuses = ['open','in-progress','resolved','merged'];
-  const statusOpts = statuses.map(s =>
-    `<option value="${s}" ${b.status===s?'selected':''}>${s}</option>`
-  ).join('');
+  const opts = statuses.map(s => `<option value="${s}" ${b.status===s?'selected':''}>${s}</option>`).join('');
+  const fc = (b.files||'').split(',').filter(Boolean);
 
-  document.getElementById('detail-content').innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="font-size:17px;font-weight:500;margin-bottom:6px;padding-right:60px">${b.title}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span class="badge badge-${b.severity}">${b.severity}</span>
-        <span class="badge badge-${b.status}">${b.status}</span>
-        <span class="badge badge-open">${b.category}</span>
-      </div>
+  document.getElementById('panel-content').innerHTML = `
+    <div class="panel-title">${b.title}</div>
+    <div class="panel-badges">
+      <span class="badge b-${b.severity}">${b.severity}</span>
+      <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status}</span>
+      <span class="badge b-open">${b.category||''}</span>
     </div>
-    <div class="detail-divider"></div>
-    <div class="detail-field"><div class="detail-field-label">Reporter</div><div class="detail-field-val">${b.name}</div></div>
-    <div class="detail-field"><div class="detail-field-label">Submitted</div><div class="detail-field-val">${ts}</div></div>
-    <div class="detail-field"><div class="detail-field-label">Status</div>
-      <select onchange="changeStatus(${b.id}, this.value)" style="width:auto;margin-top:4px">${statusOpts}</select>
+    <div class="divider"></div>
+    <div style="margin-bottom:12px"><div class="field-label">Reporter</div><div class="field-val">${b.name||'Anonymous'}</div></div>
+    <div style="margin-bottom:12px"><div class="field-label">Submitted</div><div class="field-val">${ts}</div></div>
+    <div style="margin-bottom:12px">
+      <div class="field-label">Status</div>
+      <select style="width:auto;margin-top:4px" onchange="changeStatus(${b.id}, this.value)">${opts}</select>
     </div>
-    <div class="detail-divider"></div>
-    <div class="detail-field"><div class="detail-field-label">How to reproduce</div><div class="detail-field-val">${b.repro || '—'}</div></div>
-    <div class="detail-field"><div class="detail-field-label">Expected vs actual</div><div class="detail-field-val">${b.expected || '—'}</div></div>
-    ${b.files.length ? `<div class="detail-field"><div class="detail-field-label">Attachments</div>
-      <div class="file-list">${b.files.map(f=>`<div class="file-pill">${f}</div>`).join('')}</div></div>` : ''}
-    ${b.mergedInto ? `<div style="margin-top:12px;font-size:13px;color:var(--color-text-secondary)">Merged into report #${b.mergedInto}</div>` : ''}
-    <div class="detail-divider"></div>
-    <button class="icon-btn danger" style="width:100%;justify-content:center" onclick="deleteBug(${b.id})">Remove this report</button>
+    <div class="divider"></div>
+    <div style="margin-bottom:12px"><div class="field-label">How to reproduce</div><div class="field-val">${b.repro||'—'}</div></div>
+    <div style="margin-bottom:12px"><div class="field-label">Expected vs actual</div><div class="field-val">${b.expected||'—'}</div></div>
+    ${fc.length ? `<div style="margin-bottom:12px"><div class="field-label">Attachments</div><div class="file-pills" style="margin-top:6px">${fc.map(f=>`<div class="pill">${f}</div>`).join('')}</div></div>` : ''}
+    ${b.merged_into ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Merged into report #${b.merged_into}</div>` : ''}
+    <div class="divider"></div>
+    <button class="icon-btn del" style="width:100%;justify-content:center;padding:8px" onclick="deleteBug(${b.id})">Remove this report</button>
   `;
-  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('panel').classList.add('open');
 }
 
-function changeStatus(id, val) {
+async function changeStatus(id, val) {
+  await db.from('bugreports').update({ status: val }).eq('id', id);
   const b = bugs.find(x => x.id === id);
-  if (b) { b.status = val; save(); renderList(); openDetail(id); }
+  if (b) b.status = val;
+  renderStats(); renderList(); openPanel(id);
 }
 
-function closeDetail() {
-  document.getElementById('detail-panel').classList.remove('open');
-  openDetailId = null;
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  openId = null;
+}
+
+let toastTimer;
+function toast(msg, err=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast', 3000);
 }
 </script>
+</body>
+</html>
