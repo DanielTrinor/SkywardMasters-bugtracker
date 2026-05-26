@@ -428,6 +428,11 @@
         <option>Visuals / rendering</option>
         <option>Other</option>
       </select>
+      <select id="fa" onchange="renderList()">
+        <option value="">All assignees</option>
+        <option value="mine">Assigned to me</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
       <select id="sort" onchange="renderList()">
         <option value="date-desc">Newest first</option>
         <option value="date-asc">Oldest first</option>
@@ -509,11 +514,18 @@ const db = createClient(SUPA_URL, SUPA_KEY);
 
 const SEV = { low:1, medium:2, high:3, critical:4 };
 let bugs = [];
+let staffProfiles = []; // all admin + developer profiles, for assignee dropdowns
 let selSev = '';
 let files = [];
 let selected = new Set();
 let openId = null;
 let currentUser = null; // { id, email, display_name, role }
+
+function assigneeName(userId) {
+  if (!userId) return null;
+  const p = staffProfiles.find(x => x.id === userId);
+  return p ? (p.display_name || p.email) : null;
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -691,11 +703,31 @@ async function loadBugs() {
   bugs = data || [];
 }
 
+async function loadStaffProfiles() {
+  const { data } = await db.from('profiles')
+    .select('id, display_name, email, role')
+    .in('role', ['admin', 'developer'])
+    .order('display_name');
+  staffProfiles = data || [];
+
+  // Rebuild the assignee filter dropdown with real names
+  const fa = document.getElementById('fa');
+  if (!fa) return;
+  const current = fa.value;
+  fa.innerHTML = `
+    <option value="">All assignees</option>
+    <option value="mine">Assigned to me</option>
+    <option value="unassigned">Unassigned</option>
+    ${staffProfiles.map(p => `<option value="${p.id}">${p.display_name || p.email}</option>`).join('')}
+  `;
+  fa.value = current; // restore selection if still valid
+}
+
 async function fetchAndRender() {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('list').innerHTML = '';
   document.getElementById('empty').style.display = 'none';
-  await loadBugs();
+  await Promise.all([loadBugs(), loadStaffProfiles()]);
   document.getElementById('loading').style.display = 'none';
   renderStats(); renderList();
 }
@@ -718,12 +750,16 @@ function getFiltered() {
   const fs   = document.getElementById('fs').value;
   const fst  = document.getElementById('fst').value;
   const fc   = document.getElementById('fc').value;
+  const fa   = document.getElementById('fa').value;
   const sort = document.getElementById('sort').value;
 
   let list = bugs.filter(b => {
     if (fs  && b.severity !== fs)  return false;
     if (fst && b.status   !== fst) return false;
     if (fc  && b.category !== fc)  return false;
+    if (fa === 'mine'       && b.assigned_to !== currentUser?.id) return false;
+    if (fa === 'unassigned' && b.assigned_to)                     return false;
+    if (fa && fa !== 'mine' && fa !== 'unassigned' && b.assigned_to !== fa) return false;
     if (q && !b.title.toLowerCase().includes(q) && !(b.name||'').toLowerCase().includes(q)) return false;
     return true;
   });
@@ -771,6 +807,7 @@ function renderList() {
             <span>${b.category||''}</span>
             <span>${ts}</span>
             ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
+            ${b.assigned_to ? `<span style="color:var(--blue)">→ ${assigneeName(b.assigned_to) || 'Unknown'}</span>` : ''}
           </div>
         </div>
         <div class="bug-right" onclick="event.stopPropagation()">
@@ -848,6 +885,16 @@ function openPanel(id) {
     ? `<select style="width:auto;margin-top:4px" onchange="changeStatus(${b.id}, this.value)">${opts}</select>`
     : `<div class="field-val">${b.status||'open'}</div>`;
 
+  const assigneeOpts = staffProfiles
+    .map(p => `<option value="${p.id}" ${b.assigned_to===p.id?'selected':''}>${p.display_name||p.email}</option>`)
+    .join('');
+  const assigneeField = canEdit
+    ? `<select style="width:auto;margin-top:4px" onchange="changeAssignee(${b.id}, this.value)">
+         <option value="" ${!b.assigned_to?'selected':''}>Unassigned</option>
+         ${assigneeOpts}
+       </select>`
+    : `<div class="field-val">${assigneeName(b.assigned_to) || 'Unassigned'}</div>`;
+
   const deleteBtn = isAdmin
     ? `<div class="divider"></div>
        <button class="icon-btn del" style="width:100%;justify-content:center;padding:8px" onclick="deleteBug(${b.id})">Remove this report</button>`
@@ -867,6 +914,10 @@ function openPanel(id) {
       <div class="field-label">Status</div>
       ${statusField}
     </div>
+    <div style="margin-bottom:12px">
+      <div class="field-label">Assigned to</div>
+      ${assigneeField}
+    </div>
     <div class="divider"></div>
     <div style="margin-bottom:12px"><div class="field-label">How to reproduce</div><div class="field-val">${b.repro||'—'}</div></div>
     <div style="margin-bottom:12px"><div class="field-label">Expected vs actual</div><div class="field-val">${b.expected||'—'}</div></div>
@@ -884,6 +935,17 @@ async function changeStatus(id, val) {
   if (b) b.status = val;
   renderStats(); renderList(); openPanel(id);
   toast('Status updated to ' + val);
+}
+
+async function changeAssignee(id, userId) {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
+  const val = userId || null;
+  await db.from('bugreports').update({ assigned_to: val }).eq('id', id);
+  const b = bugs.find(x => x.id === id);
+  if (b) b.assigned_to = val;
+  renderList(); openPanel(id);
+  const name = val ? assigneeName(val) : 'nobody';
+  toast('Assigned to ' + name);
 }
 
 function closePanel() {
