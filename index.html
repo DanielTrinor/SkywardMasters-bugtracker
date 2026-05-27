@@ -541,7 +541,7 @@ document.getElementById('version-label').textContent =
 const supabaseUrl = 'SUPABASE_URL_PLACEHOLDER'
 const supabaseKey = 'SUPABASE_KEY_PLACEHOLDER'
 const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY);
+const db = createClient(supabaseUrl, supabaseKey);
 
 const SEV = { low:1, medium:2, high:3, critical:4 };
 let bugs = [];
