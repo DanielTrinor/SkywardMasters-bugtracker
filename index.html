@@ -249,7 +249,7 @@
   .modal {
     background: var(--bg2); border: 1px solid var(--border2);
     border-radius: var(--radius-lg); padding: 24px;
-    width: 100%; max-width: 580px;
+    width: 100%; max-width: 700px;
     max-height: calc(100vh - 80px); overflow-y: auto;
   }
   .modal-header {
@@ -375,6 +375,26 @@
     <h2>Report submitted</h2>
     <p>Thanks for helping make Skyward Masters better. The team will review your report.</p>
     <button class="btn-primary" style="max-width:180px;margin:16px auto 0" onclick="resetForm()">Submit another</button>
+  </div>
+</div>
+
+<!-- RESET PASSWORD VIEW -->
+<div class="view" id="view-reset">
+  <div class="login-wrap">
+    <div class="card">
+      <h1 style="margin-bottom:4px">Set new password</h1>
+      <p class="subtitle" style="margin-bottom:20px">Enter your new password below.</p>
+      <div class="form-group">
+        <label>New password</label>
+        <input type="password" id="r-pass" placeholder="Min. 6 characters" onkeydown="if(event.key==='Enter')doResetPassword()">
+      </div>
+      <div class="form-group">
+        <label>Confirm password</label>
+        <input type="password" id="r-pass2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doResetPassword()">
+      </div>
+      <div class="login-err" id="reset-err"></div>
+      <button class="btn-primary" id="reset-btn" onclick="doResetPassword()">Set password</button>
+    </div>
   </div>
 </div>
 
@@ -528,6 +548,12 @@ function assigneeName(userId) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+
+db.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showView('reset', null);
+  }
+});
 
 window.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await db.auth.getSession();
@@ -1074,10 +1100,42 @@ async function removeUser(id, label) {
   await loadAndRenderUsers();
 }
 
+async function doResetPassword() {
+  const pass  = document.getElementById('r-pass').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const errEl = document.getElementById('reset-err');
+  const btn   = document.getElementById('reset-btn');
+  errEl.style.display = 'none';
+
+  if (pass.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.';
+    errEl.style.display = 'block'; return;
+  }
+  if (pass !== pass2) {
+    errEl.textContent = 'Passwords do not match.';
+    errEl.style.display = 'block'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { error } = await db.auth.updateUser({ password: pass });
+  btn.disabled = false; btn.textContent = 'Set password';
+
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block'; return;
+  }
+
+  await db.auth.signOut();
+  toast('Password updated. Please log in.');
+  document.getElementById('r-pass').value = '';
+  document.getElementById('r-pass2').value = '';
+  showView('staff', document.getElementById('nav-staff'));
+}
+
 async function sendPasswordReset(email, label) {
   if (!confirm(`Send a password reset email to ${label} (${email})?`)) return;
   const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
+    redirectTo: window.location.origin + window.location.pathname
   });
   if (error) { toast('Failed to send reset email: ' + error.message, true); return; }
   toast(`Password reset email sent to ${email}`);
