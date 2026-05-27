@@ -1,4 +1,4 @@
-yamlname: Deploy Dev
+name: Deploy Dev
 
 on:
   push:
