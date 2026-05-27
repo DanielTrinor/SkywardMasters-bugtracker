@@ -25,10 +25,14 @@ jobs:
           PROD_URL: ${{ secrets.PROD_SUPABASE_URL }}
           PROD_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
 
+
+        
       - name: Inject production Supabase config
         run: |
           sed -i "s|SUPABASE_URL_PLACEHOLDER|${{ secrets.PROD_SUPABASE_URL }}|g" index.html
           sed -i "s|SUPABASE_KEY_PLACEHOLDER|${{ secrets.PROD_SUPABASE_ANON_KEY }}|g" index.html
+      - name: Check after sed
+        run: grep -n "supabaseUrl\|supabaseKey" index.html
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
