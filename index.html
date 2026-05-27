@@ -281,6 +281,13 @@
   .dot-loader::after { content: ''; animation: dots 1.2s infinite; }
   @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
+  .version-label {
+    position: fixed; bottom: 12px; left: 16px;
+    font-size: 11px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    pointer-events: none; z-index: 10;
+  }
+
   .toast {
     position: fixed; bottom: 20px; right: 20px;
     background: var(--bg2); border: 1px solid var(--border2);
@@ -525,8 +532,12 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="version-label" id="version-label"></div>
 
 <script>
+document.getElementById('version-label').textContent =
+  new Date(document.lastModified).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
 const SUPA_URL = 'https://jzrkmegsnxknfubhdoqf.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg';
 const { createClient } = supabase;
