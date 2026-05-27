@@ -997,6 +997,7 @@ async function loadAndRenderUsers() {
         <option value="admin"     ${u.role==='admin'     ?'selected':''}>Admin</option>
       </select>
     `;
+    const resetPwdBtn = `<button class="icon-btn" onclick="sendPasswordReset('${u.email}', '${(u.display_name||u.email).replace(/'/g,"\\'")}')">Reset pwd</button>`;
     const removeBtn = isSelf
       ? `<span style="font-size:11px;color:var(--text3)">(you)</span>`
       : `<button class="icon-btn del" onclick="removeUser('${u.id}', '${(u.display_name||u.email).replace(/'/g,"\\'")}')">Remove</button>`;
@@ -1008,6 +1009,7 @@ async function loadAndRenderUsers() {
       </div>
       <span class="role-badge role-${u.role}" id="rbadge-${u.id}">${u.role}</span>
       ${roleSelect}
+      ${resetPwdBtn}
       ${removeBtn}
     </div>`;
   }).join('');
@@ -1070,6 +1072,15 @@ async function removeUser(id, label) {
   if (error) { toast('Failed to remove user', true); return; }
   toast(`${label} removed`);
   await loadAndRenderUsers();
+}
+
+async function sendPasswordReset(email, label) {
+  if (!confirm(`Send a password reset email to ${label} (${email})?`)) return;
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  if (error) { toast('Failed to send reset email: ' + error.message, true); return; }
+  toast(`Password reset email sent to ${email}`);
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
