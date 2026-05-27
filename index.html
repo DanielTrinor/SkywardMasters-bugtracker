@@ -556,6 +556,9 @@ db.auth.onAuthStateChange((event) => {
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  if (hashParams.get('type') === 'recovery') return; // onAuthStateChange handles this
+
   const { data: { session } } = await db.auth.getSession();
   if (session) {
     const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
