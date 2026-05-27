@@ -19,6 +19,13 @@ jobs:
 
       - name: Inject production Supabase config
         run: |
+          - name: Debug secrets
+            run: |
+              echo "URL length: ${#PROD_URL}"
+              echo "KEY length: ${#PROD_KEY}"
+            env:
+              PROD_URL: ${{ secrets.PROD_SUPABASE_URL }}
+              PROD_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
           sed -i "s|SUPABASE_URL_PLACEHOLDER|${{ secrets.PROD_SUPABASE_URL }}|g" index.html
           sed -i "s|SUPABASE_KEY_PLACEHOLDER|${{ secrets.PROD_SUPABASE_ANON_KEY }}|g" index.html
 
