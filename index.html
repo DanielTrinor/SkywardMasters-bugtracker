@@ -680,17 +680,28 @@ function pickSev(btn) {
 }
 
 function addFiles(input) {
-  for (const f of input.files) if (!files.includes(f.name)) files.push(f.name);
+  for (const f of input.files) if (!files.find(x => x.name === f.name)) files.push(f);
   renderPills();
 }
 
 function renderPills() {
   document.getElementById('pills').innerHTML = files.map((f,i) =>
-    `<div class="pill">${f}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`
+    `<div class="pill">${f.name}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`
   ).join('');
 }
 
 function removeFile(i) { files.splice(i,1); renderPills(); }
+
+function renderAttachments(urls) {
+  if (!urls.length) return '';
+  const items = urls.map(url => {
+    const isImg = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
+    if (isImg) return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" style="max-width:100%;border-radius:6px;border:1px solid var(--border);display:block" /></a>`;
+    const name = url.split('/').pop().replace(/^\d+_/, '');
+    return `<a href="${url}" target="_blank" rel="noopener" class="pill" style="text-decoration:none;word-break:break-all">${name}</a>`;
+  }).join('');
+  return `<div style="margin-bottom:12px"><div class="field-label">Attachments</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${items}</div></div>`;
+}
 
 async function submitBug() {
   const title = document.getElementById('f-title').value.trim();
@@ -698,7 +709,19 @@ async function submitBug() {
   if (!title) { document.getElementById('f-title').focus(); return; }
 
   const btn = document.getElementById('submit-btn');
-  btn.disabled = true; btn.textContent = 'Submitting...';
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  const urls = [];
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${Date.now()}_${safeName}`;
+    const { error: upErr } = await db.storage.from('bug-attachments').upload(path, file);
+    if (upErr) { toast('File upload failed: ' + upErr.message, true); btn.disabled = false; btn.textContent = 'Submit bug report'; return; }
+    const { data: { publicUrl } } = db.storage.from('bug-attachments').getPublicUrl(path);
+    urls.push(publicUrl);
+  }
+
+  btn.textContent = 'Submitting...';
 
   const { error } = await db.from('bugreports').insert({
     title,
@@ -708,7 +731,7 @@ async function submitBug() {
     status: 'open',
     repro: document.getElementById('f-repro').value.trim(),
     expected: document.getElementById('f-expected').value.trim(),
-    files: files.join(','),
+    files: urls.join(','),
     merged_into: null,
     date: Date.now(),
     user_id: currentUser?.id || null
@@ -961,7 +984,7 @@ function openPanel(id) {
     <div class="divider"></div>
     <div style="margin-bottom:12px"><div class="field-label">How to reproduce</div><div class="field-val">${b.repro||'—'}</div></div>
     <div style="margin-bottom:12px"><div class="field-label">Expected vs actual</div><div class="field-val">${b.expected||'—'}</div></div>
-    ${fc.length ? `<div style="margin-bottom:12px"><div class="field-label">Attachments</div><div class="file-pills" style="margin-top:6px">${fc.map(f=>`<div class="pill">${f}</div>`).join('')}</div></div>` : ''}
+    ${renderAttachments(fc)}
     ${b.merged_into ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Merged into report #${b.merged_into}</div>` : ''}
     ${deleteBtn}
   `;
