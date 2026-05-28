@@ -538,8 +538,8 @@
 document.getElementById('version-label').textContent =
   new Date(document.lastModified).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
-const supabaseUrl = 'SUPABASE_URL_PLACEHOLDER'
-const supabaseKey = 'SUPABASE_KEY_PLACEHOLDER'
+const supabaseUrl = 'https://jzrkmegsnxknfubhdoqf.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg'
 const { createClient } = supabase;
 const db = createClient(supabaseUrl, supabaseKey);
 
