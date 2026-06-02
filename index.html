@@ -957,8 +957,10 @@ async function deleteBug(id) {
   const fileUrls = (bug?.files || '').split(',').filter(Boolean);
   if (fileUrls.length) {
     const paths = fileUrls.map(url => url.split('/bug-attachments/')[1]).filter(Boolean);
+    console.log('[delete] fileUrls:', fileUrls, '→ paths:', paths);
     if (paths.length) {
-      const { error: storageErr } = await db.storage.from('bug-attachments').remove(paths);
+      const { data: removed, error: storageErr } = await db.storage.from('bug-attachments').remove(paths);
+      console.log('[delete] removed:', removed, 'error:', storageErr);
       if (storageErr) { toast('Could not delete attachments: ' + storageErr.message, true); return; }
     }
   }
