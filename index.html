@@ -206,6 +206,8 @@
   }
   .icon-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
   .icon-btn.del:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { display: inline-block; animation: spin 0.7s linear infinite; }
   .logout-btn { background: none; border: none; font-size: 12px; color: var(--text3); cursor: pointer; font-family: inherit; padding: 4px 8px; }
   .logout-btn:hover { color: var(--text2); }
 
@@ -466,6 +468,7 @@
         <option value="sev-desc">Severity ↓</option>
         <option value="sev-asc">Severity ↑</option>
       </select>
+      <button class="icon-btn" id="refresh-btn" onclick="refreshDashboard()" title="Refresh reports">↻ Refresh</button>
     </div>
 
     <div class="list" id="list"></div>
@@ -774,6 +777,17 @@ async function loadBugs() {
   bugs = data || [];
 }
 
+async function refreshDashboard() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">↻</span> Refreshing...';
+  await loadBugs();
+  renderStats(); renderList();
+  btn.disabled = false;
+  btn.innerHTML = '↻ Refresh';
+  toast('Reports refreshed');
+}
+
 async function loadStaffProfiles() {
   const { data } = await db.from('profiles')
     .select('id, display_name, email, role')
@@ -831,11 +845,21 @@ function getFiltered() {
     if (fa === 'mine'       && b.assigned_to !== currentUser?.id) return false;
     if (fa === 'unassigned' && b.assigned_to)                     return false;
     if (fa && fa !== 'mine' && fa !== 'unassigned' && b.assigned_to !== fa) return false;
-    if (q && !b.title.toLowerCase().includes(q) && !(b.name||'').toLowerCase().includes(q)) return false;
+    if (q) {
+      const inTitle = b.title.toLowerCase().includes(q);
+      const inName  = (b.name||'').toLowerCase().includes(q);
+      const inRepro = (b.repro||'').toLowerCase().includes(q);
+      const inExp   = (b.expected||'').toLowerCase().includes(q);
+      if (!inTitle && !inName && !inRepro && !inExp) return false;
+      b._searchRank = inTitle ? 0 : 1;
+    } else {
+      b._searchRank = 0;
+    }
     return true;
   });
 
   list.sort((a,b) => {
+    if (q && a._searchRank !== b._searchRank) return a._searchRank - b._searchRank;
     if (sort==='date-desc') return b.date - a.date;
     if (sort==='date-asc')  return a.date - b.date;
     if (sort==='sev-desc')  return (SEV[b.severity]||0)-(SEV[a.severity]||0);
@@ -929,6 +953,12 @@ async function doMerge() {
 
 async function deleteBug(id) {
   if (currentUser?.role !== 'admin') return;
+  const bug = bugs.find(b => b.id === id);
+  const fileUrls = (bug?.files || '').split(',').filter(Boolean);
+  if (fileUrls.length) {
+    const paths = fileUrls.map(url => url.split('/bug-attachments/')[1]).filter(Boolean);
+    if (paths.length) await db.storage.from('bug-attachments').remove(paths);
+  }
   await db.from('bugreports').delete().eq('id', id);
   bugs = bugs.filter(b => b.id !== id);
   selected.delete(id); updateMergeBar();
