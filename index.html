@@ -1228,6 +1228,7 @@ async function doResetPassword() {
     document.getElementById('reset-title').textContent = 'Set new password';
     document.getElementById('reset-subtitle').textContent = 'Enter your new password below.';
     toast('Password set. Welcome!');
+    showView('staff', document.getElementById('nav-staff'));
     showDashboard();
     return;
   }
