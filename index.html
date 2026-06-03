@@ -95,8 +95,8 @@
 
   .sev-grid { display: flex; gap: 6px; }
   .sev-btn {
-    flex: 1; padding: 8px 6px; border-radius: var(--radius);
-    border: 1px solid var(--border2); font-size: 12px; cursor: pointer;
+    flex: 1; padding: 9px 6px; border-radius: var(--radius);
+    border: 1px solid var(--border2); font-size: 14px; cursor: pointer;
     text-align: center; background: var(--bg2); color: var(--text2);
     font-family: inherit; transition: all 0.15s; font-weight: 500;
   }
@@ -373,8 +373,8 @@
     </div>
     <div class="form-group">
       <label>Attachments (filenames only)</label>
-      <div class="file-drop" onclick="document.getElementById('fi').click()">Click to attach screenshots, videos or log files</div>
-      <input type="file" id="fi" multiple style="display:none" onchange="addFiles(this)">
+      <div class="file-drop" onclick="document.getElementById('fi').click()">Click to attach screenshots (PNG, JPG) or log files (TXT)</div>
+      <input type="file" id="fi" multiple accept=".png,.jpg,.jpeg,.txt,.log,image/png,image/jpeg,text/plain" style="display:none" onchange="addFiles(this)">
       <div class="file-pills" id="pills"></div>
     </div>
     <button class="btn-primary" id="submit-btn" onclick="submitBug()">Submit bug report</button>
@@ -391,8 +391,8 @@
 <div class="view" id="view-reset">
   <div class="login-wrap">
     <div class="card">
-      <h1 style="margin-bottom:4px">Set new password</h1>
-      <p class="subtitle" style="margin-bottom:20px">Enter your new password below.</p>
+      <h1 style="margin-bottom:4px" id="reset-title">Set new password</h1>
+      <p class="subtitle" style="margin-bottom:20px" id="reset-subtitle">Enter your new password below.</p>
       <div class="form-group">
         <label>New password</label>
         <input type="password" id="r-pass" placeholder="Min. 6 characters" onkeydown="if(event.key==='Enter')doResetPassword()">
@@ -624,6 +624,14 @@ async function doLogin() {
   }
 
   currentUser = profile;
+
+  if (profile.must_reset_password) {
+    document.getElementById('reset-title').textContent = 'Welcome! Set your password';
+    document.getElementById('reset-subtitle').textContent = 'Before you continue, please create your own password.';
+    showView('reset', null);
+    return;
+  }
+
   showDashboard();
 }
 
@@ -683,7 +691,11 @@ function pickSev(btn) {
 }
 
 function addFiles(input) {
-  for (const f of input.files) if (!files.find(x => x.name === f.name)) files.push(f);
+  const allowed = ['image/png', 'image/jpeg', 'text/plain'];
+  for (const f of input.files) {
+    if (!allowed.includes(f.type)) { toast(`"${f.name}" is not allowed — only PNG, JPG, and TXT/log files.`, true); continue; }
+    if (!files.find(x => x.name === f.name)) files.push(f);
+  }
   renderPills();
 }
 
@@ -1132,7 +1144,7 @@ async function createUser() {
   btn.disabled = true; btn.textContent = 'Creating...';
 
   // Use a non-persistent client so the admin session is not replaced
-  const tmp = createClient(SUPA_URL, SUPA_KEY, {
+  const tmp = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
 
@@ -1149,7 +1161,8 @@ async function createUser() {
     id: userId,
     email,
     display_name: name || null,
-    role
+    role,
+    must_reset_password: true
   });
 
   if (pe) { toast('Auth user created but profile failed: ' + pe.message, true); return; }
@@ -1203,10 +1216,22 @@ async function doResetPassword() {
     errEl.style.display = 'block'; return;
   }
 
-  await db.auth.signOut();
-  toast('Password updated. Please log in.');
   document.getElementById('r-pass').value = '';
   document.getElementById('r-pass2').value = '';
+
+  // First-login flow: clear the flag and go straight to the dashboard
+  if (currentUser?.must_reset_password) {
+    await db.from('profiles').update({ must_reset_password: false }).eq('id', currentUser.id);
+    currentUser.must_reset_password = false;
+    document.getElementById('reset-title').textContent = 'Set new password';
+    document.getElementById('reset-subtitle').textContent = 'Enter your new password below.';
+    toast('Password set. Welcome!');
+    showDashboard();
+    return;
+  }
+
+  await db.auth.signOut();
+  toast('Password updated. Please log in.');
   showView('staff', document.getElementById('nav-staff'));
 }
 
