@@ -563,10 +563,8 @@ function assigneeName(userId) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-let suppressPasswordRecovery = false;
-
 db.auth.onAuthStateChange((event) => {
-  if (event === 'PASSWORD_RECOVERY' && !suppressPasswordRecovery) {
+  if (event === 'PASSWORD_RECOVERY' && !currentUser?.must_reset_password) {
     showView('reset', null);
   }
 });
@@ -1212,9 +1210,7 @@ async function doResetPassword() {
   }
 
   btn.disabled = true; btn.textContent = 'Saving...';
-  if (currentUser?.must_reset_password) suppressPasswordRecovery = true;
   const { error } = await db.auth.updateUser({ password: pass });
-  suppressPasswordRecovery = false;
   btn.disabled = false; btn.textContent = 'Set password';
 
   if (error) {
