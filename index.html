@@ -112,13 +112,28 @@
     font-size: 13px; color: var(--text3); transition: all 0.15s;
   }
   .file-drop:hover, .file-drop.drag-over { border-color: var(--accent); color: var(--text2); background: var(--accent-dim); }
-  .file-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .file-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .pill {
     font-size: 11px; padding: 3px 8px;
     background: var(--bg3); border: 1px solid var(--border);
     border-radius: 20px; color: var(--text2);
     display: flex; align-items: center; gap: 5px;
   }
+  .pill-img {
+    position: relative; border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden;
+    background: var(--bg3); width: 80px; height: 80px; flex-shrink: 0;
+  }
+  .pill-img img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .pill-img .pill-x {
+    position: absolute; top: 3px; right: 3px;
+    background: rgba(0,0,0,0.6); border-radius: 50%;
+    width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; line-height: 1; color: #fff;
+  }
+  .pill-img .pill-x:hover { background: var(--red); color: #fff; }
   .pill-x { cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; }
   .pill-x:hover { color: var(--red); }
 
@@ -706,10 +721,20 @@ function addFiles(source) {
   renderPills();
 }
 
+let pillObjectURLs = [];
+
 function renderPills() {
-  document.getElementById('pills').innerHTML = files.map((f,i) =>
-    `<div class="pill">${f.name}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`
-  ).join('');
+  pillObjectURLs.forEach(url => URL.revokeObjectURL(url));
+  pillObjectURLs = [];
+
+  document.getElementById('pills').innerHTML = files.map((f, i) => {
+    if (f.type.startsWith('image/')) {
+      const url = URL.createObjectURL(f);
+      pillObjectURLs.push(url);
+      return `<div class="pill-img"><img src="${url}" alt="${f.name}" title="${f.name}"><span class="pill-x" onclick="removeFile(${i})">×</span></div>`;
+    }
+    return `<div class="pill">${f.name}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`;
+  }).join('');
 }
 
 function removeFile(i) { files.splice(i,1); renderPills(); }
