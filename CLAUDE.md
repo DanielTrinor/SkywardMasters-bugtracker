@@ -13,7 +13,7 @@ The tool has two sides:
 - **Frontend**: Single `index.html` file — vanilla HTML, CSS, JavaScript. No build tools, no frameworks.
 - **Hosting**: GitHub Pages (auto-deploys on every push to `main`)
 - **Database**: Supabase (Postgres)
-- **File storage**: Not yet implemented — filenames are stored as text only
+- **File storage**: Supabase Storage bucket `bug-attachments` — files uploaded on submit, public URLs stored in the `files` column
 
 ---
 
@@ -21,10 +21,13 @@ The tool has two sides:
 - **Project URL**: `https://jzrkmegsnxknfubhdoqf.supabase.co`
 - **Anon public key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg`
 - **Supabase JS SDK**: loaded via CDN (`cdn.jsdelivr.net/npm/@supabase/supabase-js@2`)
+- The anon key is intentionally in `index.html` — it is safe to expose in a frontend app. Security is enforced by RLS policies, not by hiding the key.
 
 ---
 
-## Database table: `bugreports`
+## Database tables
+
+### `bugreports`
 
 | Column | Type | Notes |
 |---|---|---|
@@ -36,23 +39,70 @@ The tool has two sides:
 | `status` | text | open / in-progress / resolved / merged |
 | `repro` | text | Step-by-step reproduction steps |
 | `expected` | text | Expected vs actual behavior |
-| `files` | text | Comma-separated filenames (not actual file content) |
+| `files` | text | Comma-separated public storage URLs |
 | `merged_into` | bigint | ID of the primary report this was merged into, nullable |
+| `assigned_to` | uuid | FK to `profiles.id`, nullable |
 | `date` | bigint | Unix timestamp in milliseconds |
 
-RLS (Row Level Security) is currently **disabled** on this table.
+### `profiles`
+
+Stores staff user info, linked to Supabase Auth.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | Primary key, matches `auth.users.id` |
+| `email` | text | |
+| `display_name` | text | Nullable |
+| `role` | text | admin / developer / tester |
+| `must_reset_password` | boolean | True for new users created by an admin — forces password change on first login |
+
+### `comments`
+
+Activity log and comments per bug report.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigserial | Primary key |
+| `bug_id` | bigint | FK to `bugreports.id` — cascades on delete |
+| `user_id` | uuid | FK to `auth.users.id` |
+| `display_name` | text | Snapshot of the user's name at time of posting |
+| `body` | text | Comment text or activity message |
+| `is_activity` | boolean | True = auto-generated activity entry, False = manual comment |
+| `created_at` | bigint | Unix timestamp in milliseconds |
+
+### Supabase functions (run in SQL editor)
+
+Two custom Postgres functions exist:
+- `get_my_role()` — returns the current authenticated user's role from `profiles`. Used by RLS policies.
+- `delete_auth_user(user_id uuid)` — deletes a user from `auth.users`. Called from the frontend when an admin removes a user. Uses `SECURITY DEFINER` so no service role key is needed client-side.
+
+### RLS policies
+
+RLS is **enabled** on `bugreports`, `comments`, and `profiles`. The full policy SQL is saved in `supabase/rls-policies.sql`. Summary:
+- `bugreports`: public INSERT (submit form), authenticated SELECT, admin/developer UPDATE, admin DELETE
+- `comments`: authenticated SELECT and INSERT (staff only, insert only as themselves)
+- `profiles`: authenticated SELECT, admin INSERT/UPDATE/DELETE, users can UPDATE their own row
 
 ---
 
 ## Current features
-- Public bug submission form (title, name, category, severity, repro steps, expected vs actual, file attachments as filenames)
-- Staff login (currently hardcoded: `admin` / `skyward`)
+- Public bug submission form (title, name, category, severity, repro steps, expected vs actual, file attachments)
+- File attachments: PNG, JPG, and TXT/log files only — validated client-side. Files uploaded to Supabase Storage, URLs stored in DB. Drag-and-drop supported on the file drop zone. Image thumbnails shown after adding files.
+- Staff login via Supabase Auth (email + password)
+- First-login flow: new users created by an admin are forced to set their own password before accessing the dashboard (`must_reset_password` flag on `profiles`)
+- Role-based access:
+  - **Tester**: submit reports only
+  - **Developer**: view dashboard, update status and assignee, post comments
+  - **Admin**: full access — create/remove users, delete reports, merge, change any field
+- Admin user management modal: create users (sets `must_reset_password: true`), change roles, send password reset emails, remove users (deletes from both `profiles` and `auth.users`)
 - Staff dashboard with stats (open, in-progress, resolved, critical)
 - Search, filter by severity/status/category, sort by date or severity
 - Click a report to open a detail side panel
+- Assignee field — assign reports to a developer from the detail panel
 - Change status from the detail panel (open → in-progress → resolved → merged)
 - Select multiple reports and merge as duplicates
-- Remove individual reports
+- Remove individual reports (admin only, also removes attachments from storage)
+- Activity log + comments in the detail panel — comments posted manually by staff, activity entries auto-logged for: status changes, assignee changes, merges
 - Toast notifications for actions
 - Dark theme UI
 
@@ -60,35 +110,38 @@ RLS (Row Level Security) is currently **disabled** on this table.
 
 ## Planned features (not yet built)
 
-### 1. User accounts with roles — HIGH PRIORITY
-Replace the hardcoded login with proper **Supabase Auth**. Requirements:
-- Role types: **Admin**, **Developer**, **Tester**
-- Admins can create new users and assign roles from inside the dashboard
-- Role-based access:
-  - Tester: submit reports only (no dashboard access)
-  - Developer: view dashboard, update status, add comments
-  - Admin: full access — create users, delete reports, merge, change any field
-- A `users` table (or Supabase Auth metadata) to store role per user
-- Password reset via email (Supabase Auth handles this)
-
-### 2. Improved merge UI — MEDIUM PRIORITY
+### 1. Improved merge UI — MEDIUM PRIORITY
 The basic merge function exists but needs polish:
 - Clearly indicate which report is the "primary" when merging
 - Show merged reports visibly linked in the detail panel with a reference/link back to the primary
 - Option to unmerge
 
-### 3. Actual file uploads — MEDIUM PRIORITY
-Currently only filenames are stored as text. Needs:
-- Supabase Storage bucket for bug report attachments
-- Upload file on submit, store the public URL in the database
-- Clickable links in the detail panel so staff can view/download attachments
-
-### 4. In-game bug reporter (Unreal Engine) — LOW PRIORITY / NICE TO HAVE
+### 2. In-game bug reporter (Unreal Engine) — LOW PRIORITY / NICE TO HAVE
 An in-game widget in Skyward Masters (Unreal Engine 5, Blueprint-only workflow) that lets players submit bug reports without leaving the game. Approach:
 - UMG widget with a short form (title, description, severity)
 - HTTP POST request using UE's HTTP module or Blueprint HTTP nodes
 - Posts directly to Supabase REST API with the anon key
 - No middleman server needed
+
+### 3. Other ideas noted (not prioritised)
+- Email notifications on new reports or status changes (Supabase Edge Functions)
+- Duplicate detection on submit
+- Bulk status change
+- Report ID shown on each card
+- Pagination / infinite scroll
+- Markdown support in repro/expected fields
+- Public read-only status page for testers
+
+---
+
+## Repo structure
+
+```
+index.html           — the entire frontend app
+supabase/
+  rls-policies.sql   — all RLS policies and helper functions to run in Supabase SQL editor
+CLAUDE.md            — this file
+```
 
 ---
 
