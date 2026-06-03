@@ -1002,8 +1002,12 @@ async function doMerge() {
   const ids     = [...selected];
   const primary = ids[0];
   const rest    = ids.slice(1);
+  const primaryBug = bugs.find(x => x.id === primary);
+  const primaryLabel = primaryBug ? `"${primaryBug.title}" (#${primary})` : `#${primary}`;
   for (const id of rest) {
     await db.from('bugreports').update({ status: 'merged', merged_into: primary }).eq('id', id);
+    await logActivity(id, `Merged into report ${primaryLabel}`);
+    await logActivity(primary, `Report #${id} was merged into this report`);
   }
   toast('Merged ' + rest.length + ' report' + (rest.length>1?'s':'') + ' into #' + primary);
   clearSel(); await fetchAndRender();
@@ -1180,12 +1184,14 @@ async function changeStatus(id, val) {
 async function changeAssignee(id, userId) {
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
   const val = userId || null;
-  await db.from('bugreports').update({ assigned_to: val }).eq('id', id);
   const b = bugs.find(x => x.id === id);
+  const prevName = assigneeName(b?.assigned_to) || 'nobody';
+  await db.from('bugreports').update({ assigned_to: val }).eq('id', id);
   if (b) b.assigned_to = val;
+  const newName = val ? assigneeName(val) : 'nobody';
+  await logActivity(id, `Changed assignee from "${prevName}" to "${newName}"`);
   renderList(); openPanel(id);
-  const name = val ? assigneeName(val) : 'nobody';
-  toast('Assigned to ' + name);
+  toast('Assigned to ' + newName);
 }
 
 function closePanel() {
