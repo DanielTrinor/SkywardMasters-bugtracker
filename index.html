@@ -285,6 +285,23 @@
   .user-display-name { font-size: 14px; font-weight: 500; }
   .user-email { font-size: 12px; color: var(--text3); }
 
+  /* Comments */
+  .comments-section { margin-top: 8px; }
+  .comment-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .comment {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px; font-size: 13px;
+  }
+  .comment-meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .comment-author { font-weight: 500; font-size: 12px; color: var(--text); }
+  .comment-time { font-size: 11px; color: var(--text3); }
+  .comment-body { color: var(--text2); line-height: 1.6; white-space: pre-wrap; }
+  .comment.activity { background: transparent; border: none; padding: 2px 0; }
+  .comment.activity .comment-body { font-size: 12px; color: var(--text3); font-style: italic; }
+  .comment-input-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .comment-input-wrap textarea { min-height: 60px; font-size: 13px; }
+  .comment-empty { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+
   .create-panel {
     background: var(--bg3); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 16px; margin-bottom: 8px;
@@ -1072,15 +1089,90 @@ function openPanel(id) {
     ${renderAttachments(fc)}
     ${b.merged_into ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Merged into report #${b.merged_into}</div>` : ''}
     ${deleteBtn}
+    <div class="divider"></div>
+    <div class="comments-section">
+      <div class="field-label" style="margin-bottom:10px">Activity &amp; comments</div>
+      <div class="comment-list" id="comment-list"><div class="comment-empty">Loading…</div></div>
+      ${currentUser ? `
+      <div class="comment-input-wrap">
+        <textarea id="comment-input" placeholder="Leave a comment…"></textarea>
+        <button class="btn-primary" style="margin-top:0" onclick="postComment(${b.id})">Post comment</button>
+      </div>` : ''}
+    </div>
   `;
   document.getElementById('panel').classList.add('open');
+  loadComments(b.id);
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+async function loadComments(bugId) {
+  const listEl = document.getElementById('comment-list');
+  if (!listEl) return;
+
+  const { data, error } = await db
+    .from('comments')
+    .select('*')
+    .eq('bug_id', bugId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) { listEl.innerHTML = '<div class="comment-empty">Could not load comments.</div>'; return; }
+  if (data.length === 0) { listEl.innerHTML = '<div class="comment-empty">No comments yet.</div>'; return; }
+
+  listEl.innerHTML = data.map(c => {
+    const time = new Date(c.created_at).toLocaleString('en-GB');
+    return `<div class="comment ${c.is_activity ? 'activity' : ''}">
+      <div class="comment-meta">
+        <span class="comment-author">${c.display_name || 'Unknown'}</span>
+        <span class="comment-time">${time}</span>
+      </div>
+      <div class="comment-body">${c.body}</div>
+    </div>`;
+  }).join('');
+}
+
+async function postComment(bugId) {
+  const input = document.getElementById('comment-input');
+  const body = input?.value.trim();
+  if (!body) return;
+
+  const btn = document.querySelector('#panel .btn-primary');
+  btn.disabled = true; btn.textContent = 'Posting…';
+
+  const { error } = await db.from('comments').insert({
+    bug_id: bugId,
+    user_id: currentUser.id,
+    display_name: currentUser.display_name || currentUser.email,
+    body,
+    is_activity: false,
+    created_at: Date.now()
+  });
+
+  btn.disabled = false; btn.textContent = 'Post comment';
+
+  if (error) { toast('Failed to post comment', true); return; }
+  input.value = '';
+  await loadComments(bugId);
+}
+
+async function logActivity(bugId, message) {
+  await db.from('comments').insert({
+    bug_id: bugId,
+    user_id: currentUser.id,
+    display_name: currentUser.display_name || currentUser.email,
+    body: message,
+    is_activity: true,
+    created_at: Date.now()
+  });
 }
 
 async function changeStatus(id, val) {
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
-  await db.from('bugreports').update({ status: val }).eq('id', id);
   const b = bugs.find(x => x.id === id);
+  const prev = b?.status || 'open';
+  await db.from('bugreports').update({ status: val }).eq('id', id);
   if (b) b.status = val;
+  await logActivity(id, `Changed status from "${prev}" to "${val}"`);
   renderStats(); renderList(); openPanel(id);
   toast('Status updated to ' + val);
 }
