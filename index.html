@@ -1144,7 +1144,7 @@ async function createUser() {
   btn.disabled = true; btn.textContent = 'Creating...';
 
   // Use a non-persistent client so the admin session is not replaced
-  const tmp = createClient(supabaseUrl, supabaseKey, {
+  const tmp = createClient(SUPA_URL, SUPA_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
 
