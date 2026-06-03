@@ -563,8 +563,10 @@ function assigneeName(userId) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+let suppressPasswordRecovery = false;
+
 db.auth.onAuthStateChange((event) => {
-  if (event === 'PASSWORD_RECOVERY') {
+  if (event === 'PASSWORD_RECOVERY' && !suppressPasswordRecovery) {
     showView('reset', null);
   }
 });
@@ -1185,9 +1187,11 @@ async function updateUserRole(id, role) {
 
 async function removeUser(id, label) {
   if (!confirm(`Remove ${label}? They will lose dashboard access immediately.`)) return;
-  const { error } = await db.from('profiles').delete().eq('id', id);
-  if (error) { toast('Failed to remove user', true); return; }
-  toast(`${label} removed`);
+  const { error: profileErr } = await db.from('profiles').delete().eq('id', id);
+  if (profileErr) { toast('Failed to remove user', true); return; }
+  const { error: authErr } = await db.rpc('delete_auth_user', { user_id: id });
+  if (authErr) { toast(`Profile removed but auth user could not be deleted: ${authErr.message}`, true); }
+  else { toast(`${label} removed`); }
   await loadAndRenderUsers();
 }
 
@@ -1208,7 +1212,9 @@ async function doResetPassword() {
   }
 
   btn.disabled = true; btn.textContent = 'Saving...';
+  if (currentUser?.must_reset_password) suppressPasswordRecovery = true;
   const { error } = await db.auth.updateUser({ password: pass });
+  suppressPasswordRecovery = false;
   btn.disabled = false; btn.textContent = 'Set password';
 
   if (error) {
