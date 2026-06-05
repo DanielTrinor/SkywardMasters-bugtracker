@@ -382,6 +382,7 @@
           <option>Audio</option>
           <option>Performance / crashes</option>
           <option>Visuals / rendering</option>
+          <option>Bug reporting tool</option>
           <option>Other</option>
         </select>
       </div>
@@ -493,6 +494,7 @@
         <option>Audio</option>
         <option>Performance / crashes</option>
         <option>Visuals / rendering</option>
+        <option>Bug reporting tool</option>
         <option>Other</option>
       </select>
       <select id="fa" onchange="renderList()">
@@ -1060,6 +1062,12 @@ function openPanel(id) {
     ? `<select style="width:auto;margin-top:4px" onchange="changeSeverity(${b.id}, this.value)">${sevOpts}</select>`
     : `<div class="field-val">${b.severity||'medium'}</div>`;
 
+  const categories  = ['Gameplay','Networking / multiplayer','UI / HUD','Audio','Performance / crashes','Visuals / rendering','Bug reporting tool','Other'];
+  const catOpts     = categories.map(c => `<option value="${c}" ${b.category===c?'selected':''}>${c}</option>`).join('');
+  const categoryField = canEdit
+    ? `<select style="width:auto;margin-top:4px" onchange="changeCategory(${b.id}, this.value)">${catOpts}</select>`
+    : `<div class="field-val">${b.category||'—'}</div>`;
+
   const assigneeOpts = staffProfiles
     .map(p => `<option value="${p.id}" ${b.assigned_to===p.id?'selected':''}>${p.display_name||p.email}</option>`)
     .join('');
@@ -1092,6 +1100,10 @@ function openPanel(id) {
     <div style="margin-bottom:12px">
       <div class="field-label">Severity</div>
       ${severityField}
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="field-label">Category</div>
+      ${categoryField}
     </div>
     <div style="margin-bottom:12px">
       <div class="field-label">Assigned to</div>
@@ -1202,6 +1214,18 @@ async function changeAssignee(id, userId) {
   await logActivity(id, `Changed assignee from "${prevName}" to "${newName}"`);
   renderList(); openPanel(id);
   toast('Assigned to ' + newName);
+}
+
+async function changeCategory(id, val) {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
+  const b = bugs.find(x => x.id === id);
+  const prev = b?.category || 'Other';
+  if (prev === val) return;
+  await db.from('bugreports').update({ category: val }).eq('id', id);
+  if (b) b.category = val;
+  await logActivity(id, `Changed category from "${prev}" to "${val}"`);
+  renderList(); openPanel(id);
+  toast('Category updated to ' + val);
 }
 
 async function changeSeverity(id, val) {
