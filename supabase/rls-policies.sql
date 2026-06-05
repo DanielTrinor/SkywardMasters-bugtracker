@@ -30,7 +30,7 @@ ON bugreports FOR SELECT
 TO authenticated
 USING (true);
 
--- Admins and developers can update reports (status, assignee, etc.)
+-- Admins and developers can update reports (status, assignee, severity, etc.)
 CREATE POLICY "Admins and developers can update reports"
 ON bugreports FOR UPDATE
 TO authenticated

@@ -227,7 +227,7 @@
   .logout-btn:hover { color: var(--text2); }
 
   .panel {
-    position: fixed; top: 0; right: 0; width: 420px; height: 100vh;
+    position: fixed; top: 0; right: 0; width: 630px; height: 100vh;
     background: var(--bg2); border-left: 1px solid var(--border2);
     overflow-y: auto; z-index: 100; padding: 20px;
     transform: translateX(100%); transition: transform 0.2s ease;
@@ -1054,6 +1054,12 @@ function openPanel(id) {
     ? `<select style="width:auto;margin-top:4px" onchange="changeStatus(${b.id}, this.value)">${opts}</select>`
     : `<div class="field-val">${b.status||'open'}</div>`;
 
+  const severities  = ['low','medium','high','critical'];
+  const sevOpts     = severities.map(s => `<option value="${s}" ${b.severity===s?'selected':''}>${s}</option>`).join('');
+  const severityField = canEdit
+    ? `<select style="width:auto;margin-top:4px" onchange="changeSeverity(${b.id}, this.value)">${sevOpts}</select>`
+    : `<div class="field-val">${b.severity||'medium'}</div>`;
+
   const assigneeOpts = staffProfiles
     .map(p => `<option value="${p.id}" ${b.assigned_to===p.id?'selected':''}>${p.display_name||p.email}</option>`)
     .join('');
@@ -1082,6 +1088,10 @@ function openPanel(id) {
     <div style="margin-bottom:12px">
       <div class="field-label">Status</div>
       ${statusField}
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="field-label">Severity</div>
+      ${severityField}
     </div>
     <div style="margin-bottom:12px">
       <div class="field-label">Assigned to</div>
@@ -1192,6 +1202,18 @@ async function changeAssignee(id, userId) {
   await logActivity(id, `Changed assignee from "${prevName}" to "${newName}"`);
   renderList(); openPanel(id);
   toast('Assigned to ' + newName);
+}
+
+async function changeSeverity(id, val) {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
+  const b = bugs.find(x => x.id === id);
+  const prev = b?.severity || 'medium';
+  if (prev === val) return;
+  await db.from('bugreports').update({ severity: val }).eq('id', id);
+  if (b) b.severity = val;
+  await logActivity(id, `Changed severity from "${prev}" to "${val}"`);
+  renderStats(); renderList(); openPanel(id);
+  toast('Severity updated to ' + val);
 }
 
 function closePanel() {
