@@ -1,7 +1,7 @@
 # Skyward Masters — Bug Tracker
 
 ## Project overview
-A web-based bug reporting tool for **Skyward Masters**, an indie arena shooter developed by Trinor Entertainment (small indie studio, ~5 people). Built as a single HTML file hosted on GitHub Pages, with Supabase as the backend database.
+A web-based bug reporting tool for **Skyward Masters**, an indie arena shooter developed by Trinor Entertainment (small indie studio, ~5 people). A static site (`index.html` + `styles.css` + `app.js`) hosted on GitHub Pages, with Supabase as the backend database.
 
 The tool has two sides:
 - **Public submission form** — anyone (testers, players) can submit a bug report without logging in
@@ -10,7 +10,7 @@ The tool has two sides:
 ---
 
 ## Tech stack
-- **Frontend**: Single `index.html` file — vanilla HTML, CSS, JavaScript. No build tools, no frameworks.
+- **Frontend**: Three files — `index.html` (markup), `styles.css` (all styles), `app.js` (all logic). Vanilla HTML, CSS, JavaScript. No build tools, no frameworks.
 - **Hosting**: GitHub Pages (auto-deploys on every push to `main`)
 - **Database**: Supabase (Postgres)
 - **File storage**: Supabase Storage bucket `bug-attachments` — files uploaded on submit, public URLs stored in the `files` column
@@ -147,7 +147,7 @@ CLAUDE.md            — this file
 
 ## Deployment
 - Repo is on GitHub, hosted via GitHub Pages
-- The entire app is `index.html` in the root of the repo
+- The entire app is `index.html`, `styles.css` and `app.js` in the root of the repo
 - Push to `main` → GitHub Actions builds and deploys automatically (~1-2 min)
 - Hard refresh (`Ctrl+Shift+R`) after deploy to bypass browser cache
 
@@ -159,4 +159,4 @@ CLAUDE.md            — this file
 - Engine: Unreal Engine 5, Blueprint-only workflow
 - Version control: Perforce (P4V/Helix Core) for the game project; GitHub for this web tool
 - The developer (Dani) is the Technical Lead — comfortable with technical tasks but prefers simple, maintainable solutions over over-engineered ones
-- Keep the app as a **single HTML file** unless there is a very strong reason to split it
+- Keep the app to the **three root files** (`index.html`, `styles.css`, `app.js`) — no build tools or further splitting unless there is a very strong reason
