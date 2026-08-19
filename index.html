@@ -179,12 +179,30 @@
   .controls select { width: auto; }
 
   .list { display: flex; flex-direction: column; gap: 6px; }
+
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  .group + .group { margin-top: 10px; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 2px 6px; border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+  }
+  .group-head:hover .group-title { color: var(--text); }
+  .group-chevron { font-size: 10px; color: var(--text3); transition: transform 0.15s; }
+  .group.collapsed .group-chevron { transform: rotate(-90deg); }
+  .group-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .group-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); }
+  .group-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .group-body { display: flex; flex-direction: column; gap: 6px; }
+  .group.collapsed .group-body { display: none; }
   .bug-card {
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: 14px 16px;
     cursor: pointer; transition: border-color 0.15s;
   }
   .bug-card:hover { border-color: var(--border2); }
+  .bug-card.st-in-progress { border-color: var(--blue); }
+  .bug-card.st-resolved { border-color: var(--accent); }
   .bug-card.sel { border-color: var(--accent); background: var(--accent-dim); }
   .bug-card.merged { opacity: 0.4; }
   .bug-row { display: flex; align-items: flex-start; gap: 10px; }
@@ -937,6 +955,66 @@ function getFiltered() {
   return list;
 }
 
+// Groups shown on the dashboard, top to bottom. Anything with an unknown
+// status falls into "open".
+const GROUPS = [
+  { key:'in-progress', label:'In progress', color:'var(--blue)'   },
+  { key:'open',        label:'Open',        color:'var(--text2)'  },
+  { key:'resolved',    label:'Resolved',    color:'var(--accent)' },
+  { key:'merged',      label:'Merged',      color:'var(--text3)'  },
+];
+
+let collapsedGroups = {};
+try { collapsedGroups = JSON.parse(localStorage.getItem('bt-collapsed') || '{}'); } catch(e) { collapsedGroups = {}; }
+
+function groupOf(b) {
+  const s = b.status || 'open';
+  return GROUPS.some(g => g.key === s) ? s : 'open';
+}
+
+function toggleGroup(key) {
+  collapsedGroups[key] = !collapsedGroups[key];
+  try { localStorage.setItem('bt-collapsed', JSON.stringify(collapsedGroups)); } catch(e) {}
+  renderList();
+}
+
+function bugCard(b, isAdmin) {
+  const ts  = new Date(b.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const sel = selected.has(b.id) ? 'sel' : '';
+  const mclass = b.status==='merged' ? 'merged' : '';
+  const stclass = 'st-' + groupOf(b);
+  const fc  = (b.files||'').split(',').filter(Boolean).length;
+
+  const checkbox = isAdmin
+    ? `<input type="checkbox" ${sel?'checked':''} onclick="toggleSel(event,${b.id})" style="cursor:pointer;margin-top:3px;flex-shrink:0">`
+    : '';
+
+  const delBtn = isAdmin
+    ? `<button class="icon-btn del" onclick="event.stopPropagation();deleteBug(${b.id})">Remove</button>`
+    : '';
+
+  return `<div class="bug-card ${stclass} ${sel} ${mclass}" id="card-${b.id}" onclick="openPanel(${b.id})">
+    <div class="bug-row">
+      ${checkbox}
+      <div class="bug-body">
+        <div class="bug-title">${b.title}</div>
+        <div class="bug-meta">
+          <span>${b.name||'Anonymous'}</span>
+          <span>${b.category||''}</span>
+          <span>${ts}</span>
+          ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
+          ${b.assigned_to ? `<span style="color:var(--blue)">&rarr; ${assigneeName(b.assigned_to) || 'Unknown'}</span>` : ''}
+        </div>
+      </div>
+      <div class="bug-right" onclick="event.stopPropagation()">
+        <span class="badge b-${b.severity}">${b.severity}</span>
+        <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status||'open'}</span>
+        ${delBtn}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderList() {
   const list  = getFiltered();
   const el    = document.getElementById('list');
@@ -946,39 +1024,18 @@ function renderList() {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  el.innerHTML = list.map(b => {
-    const ts  = new Date(b.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-    const sel = selected.has(b.id) ? 'sel' : '';
-    const mclass = b.status==='merged' ? 'merged' : '';
-    const fc  = (b.files||'').split(',').filter(Boolean).length;
-
-    const checkbox = isAdmin
-      ? `<input type="checkbox" ${sel?'checked':''} onclick="toggleSel(event,${b.id})" style="cursor:pointer;margin-top:3px;flex-shrink:0">`
-      : '';
-
-    const delBtn = isAdmin
-      ? `<button class="icon-btn del" onclick="event.stopPropagation();deleteBug(${b.id})">Remove</button>`
-      : '';
-
-    return `<div class="bug-card ${sel} ${mclass}" id="card-${b.id}" onclick="openPanel(${b.id})">
-      <div class="bug-row">
-        ${checkbox}
-        <div class="bug-body">
-          <div class="bug-title">${b.title}</div>
-          <div class="bug-meta">
-            <span>${b.name||'Anonymous'}</span>
-            <span>${b.category||''}</span>
-            <span>${ts}</span>
-            ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
-            ${b.assigned_to ? `<span style="color:var(--blue)">→ ${assigneeName(b.assigned_to) || 'Unknown'}</span>` : ''}
-          </div>
-        </div>
-        <div class="bug-right" onclick="event.stopPropagation()">
-          <span class="badge b-${b.severity}">${b.severity}</span>
-          <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status||'open'}</span>
-          ${delBtn}
-        </div>
+  el.innerHTML = GROUPS.map(g => {
+    const items = list.filter(b => groupOf(b) === g.key);
+    if (!items.length) return '';
+    const isCollapsed = !!collapsedGroups[g.key];
+    return `<div class="group ${isCollapsed?'collapsed':''}">
+      <div class="group-head" onclick="toggleGroup('${g.key}')">
+        <span class="group-chevron">&#9662;</span>
+        <span class="group-dot" style="background:${g.color}"></span>
+        <span class="group-title">${g.label}</span>
+        <span class="group-count">${items.length}</span>
       </div>
+      <div class="group-body">${items.map(b => bugCard(b, isAdmin)).join('')}</div>
     </div>`;
   }).join('');
 }
