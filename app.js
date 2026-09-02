@@ -606,7 +606,14 @@ async function loadNotifications() {
     .eq('user_id', currentUser.id)
     .is('read_at', null)
     .order('created_at', { ascending: false });
-  if (error) { notifications = []; return; } // table not created yet — fail quiet
+  if (error) {
+    // Missing table (PGRST205) means notifications.sql has not been run yet.
+    // Never break the dashboard over it, but say so loudly in the console.
+    notifications = [];
+    console.warn('Notifications unavailable:', error.message,
+      '- run supabase/notifications.sql in the Supabase SQL editor.');
+    return;
+  }
   notifications = data || [];
 }
 
@@ -649,8 +656,13 @@ async function notifyWatchers(bugId, body, commentId) {
       created_at: Date.now()
     }))
   );
-  // A failed notification must never lose the comment that triggered it.
-  if (error) console.warn('Could not create notification:', error.message);
+  // A failed notification must never lose the comment that triggered it, but
+  // the commenter should know their colleague was not actually told.
+  if (error) {
+    console.warn('Could not create notification:', error.message,
+      '- has supabase/notifications.sql been run?');
+    toast('Comment posted, but the reporter could not be notified', true);
+  }
 }
 
 async function markBugRead(bugId) {

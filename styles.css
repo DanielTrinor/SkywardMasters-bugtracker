@@ -35,7 +35,6 @@ body {
   min-height: 100vh;
 }
 
-
 .header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 24px;
@@ -195,6 +194,8 @@ input::placeholder, textarea::placeholder { color: var(--text3); }
 .bug-card:hover { border-color: var(--border2); }
 .bug-card.st-in-progress { border-color: var(--blue); }
 
+.bug-card.st-resolved { border-color: var(--accent); }
+
 /* Unread comment on a report you reported or are assigned to */
 .bug-card.unread {
   border-color: var(--amber);
@@ -213,7 +214,6 @@ input::placeholder, textarea::placeholder { color: var(--text3); }
   font-family: inherit; cursor: pointer; line-height: 1.6;
 }
 .notif-badge:hover { background: var(--amber); color: var(--bg); }
-.bug-card.st-resolved { border-color: var(--accent); }
 .bug-card.sel { border-color: var(--accent); background: var(--accent-dim); }
 .bug-card.merged { opacity: 0.4; }
 .bug-row { display: flex; align-items: flex-start; gap: 10px; }
