@@ -1,7 +1,10 @@
-const SUPA_URL = 'https://jzrkmegsnxknfubhdoqf.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg';
+document.getElementById('version-label').textContent =
+  new Date(document.lastModified).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+const supabaseUrl = 'https://jzrkmegsnxknfubhdoqf.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cmttZWdzbnhrbmZ1Ymhkb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjM1MDgsImV4cCI6MjA4OTMzOTUwOH0.ZavnKQy2mIi9U9pKYVJItF_-j7nxs0kPAvH5wCKupDg'
 const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY);
+const db = createClient(supabaseUrl, supabaseKey);
 
 const SEV = { low:1, medium:2, high:3, critical:4 };
 let bugs = [];
@@ -11,6 +14,7 @@ let files = [];
 let selected = new Set();
 let openId = null;
 let currentUser = null; // { id, email, display_name, role }
+let notifications = []; // unread notification rows for the logged-in user
 
 function assigneeName(userId) {
   if (!userId) return null;
@@ -20,7 +24,16 @@ function assigneeName(userId) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+db.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY' && !currentUser?.must_reset_password) {
+    showView('reset', null);
+  }
+});
+
 window.addEventListener('DOMContentLoaded', async () => {
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  if (hashParams.get('type') === 'recovery') return; // onAuthStateChange handles this
+
   const { data: { session } } = await db.auth.getSession();
   if (session) {
     const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
@@ -72,6 +85,14 @@ async function doLogin() {
   }
 
   currentUser = profile;
+
+  if (profile.must_reset_password) {
+    document.getElementById('reset-title').textContent = 'Welcome! Set your password';
+    document.getElementById('reset-subtitle').textContent = 'Before you continue, please create your own password.';
+    showView('reset', null);
+    return;
+  }
+
   showDashboard();
 }
 
@@ -103,6 +124,7 @@ function showDashboard() {
     ? `<button class="icon-btn" onclick="showUserMgmt()">Manage users</button>`
     : '';
   document.getElementById('dash-user').innerHTML = `
+    <span id="notif-badge"></span>
     <span class="role-badge role-${currentUser.role}">${currentUser.role}</span>
     <span style="font-size:12px;color:var(--text2)">${currentUser.display_name || currentUser.email}</span>
     ${adminBtn}
@@ -130,18 +152,44 @@ function pickSev(btn) {
   selSev = btn.dataset.s;
 }
 
-function addFiles(input) {
-  for (const f of input.files) if (!files.includes(f.name)) files.push(f.name);
+function addFiles(source) {
+  const fileList = source instanceof FileList ? source : source.files;
+  const allowed = ['image/png', 'image/jpeg', 'text/plain'];
+  for (const f of fileList) {
+    if (!allowed.includes(f.type)) { toast(`"${f.name}" is not allowed — only PNG, JPG, and TXT/log files.`, true); continue; }
+    if (!files.find(x => x.name === f.name)) files.push(f);
+  }
   renderPills();
 }
 
+let pillObjectURLs = [];
+
 function renderPills() {
-  document.getElementById('pills').innerHTML = files.map((f,i) =>
-    `<div class="pill">${f}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`
-  ).join('');
+  pillObjectURLs.forEach(url => URL.revokeObjectURL(url));
+  pillObjectURLs = [];
+
+  document.getElementById('pills').innerHTML = files.map((f, i) => {
+    if (f.type.startsWith('image/')) {
+      const url = URL.createObjectURL(f);
+      pillObjectURLs.push(url);
+      return `<div class="pill-img"><img src="${url}" alt="${f.name}" title="${f.name}"><span class="pill-x" onclick="removeFile(${i})">×</span></div>`;
+    }
+    return `<div class="pill">${f.name}<span class="pill-x" onclick="removeFile(${i})">×</span></div>`;
+  }).join('');
 }
 
 function removeFile(i) { files.splice(i,1); renderPills(); }
+
+function renderAttachments(urls) {
+  if (!urls.length) return '';
+  const items = urls.map(url => {
+    const isImg = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
+    if (isImg) return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" style="max-width:100%;border-radius:6px;border:1px solid var(--border);display:block" /></a>`;
+    const name = url.split('/').pop().replace(/^\d+_/, '');
+    return `<a href="${url}" target="_blank" rel="noopener" class="pill" style="text-decoration:none;word-break:break-all">${name}</a>`;
+  }).join('');
+  return `<div style="margin-bottom:12px"><div class="field-label">Attachments</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${items}</div></div>`;
+}
 
 async function submitBug() {
   const title = document.getElementById('f-title').value.trim();
@@ -149,7 +197,27 @@ async function submitBug() {
   if (!title) { document.getElementById('f-title').focus(); return; }
 
   const btn = document.getElementById('submit-btn');
-  btn.disabled = true; btn.textContent = 'Submitting...';
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  if (files.length > 0) {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) {
+      const { error: anonErr } = await db.auth.signInAnonymously();
+      if (anonErr) { toast('Could not start upload session: ' + anonErr.message, true); btn.disabled = false; btn.textContent = 'Submit bug report'; return; }
+    }
+  }
+
+  const urls = [];
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${Date.now()}_${safeName}`;
+    const { error: upErr } = await db.storage.from('bug-attachments').upload(path, file);
+    if (upErr) { toast('File upload failed: ' + upErr.message, true); btn.disabled = false; btn.textContent = 'Submit bug report'; return; }
+    const { data: { publicUrl } } = db.storage.from('bug-attachments').getPublicUrl(path);
+    urls.push(publicUrl);
+  }
+
+  btn.textContent = 'Submitting...';
 
   const { error } = await db.from('bugreports').insert({
     title,
@@ -159,7 +227,7 @@ async function submitBug() {
     status: 'open',
     repro: document.getElementById('f-repro').value.trim(),
     expected: document.getElementById('f-expected').value.trim(),
-    files: files.join(','),
+    files: urls.join(','),
     merged_into: null,
     date: Date.now(),
     user_id: currentUser?.id || null
@@ -194,6 +262,17 @@ async function loadBugs() {
   bugs = data || [];
 }
 
+async function refreshDashboard() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">↻</span> Refreshing...';
+  await Promise.all([loadBugs(), loadNotifications()]);
+  renderStats(); renderList(); renderNotifBadge();
+  btn.disabled = false;
+  btn.innerHTML = '↻ Refresh';
+  toast('Reports refreshed');
+}
+
 async function loadStaffProfiles() {
   const { data } = await db.from('profiles')
     .select('id, display_name, email, role')
@@ -218,9 +297,9 @@ async function fetchAndRender() {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('list').innerHTML = '';
   document.getElementById('empty').style.display = 'none';
-  await Promise.all([loadBugs(), loadStaffProfiles()]);
+  await Promise.all([loadBugs(), loadStaffProfiles(), loadNotifications()]);
   document.getElementById('loading').style.display = 'none';
-  renderStats(); renderList();
+  renderStats(); renderList(); renderNotifBadge();
 }
 
 function renderStats() {
@@ -251,11 +330,21 @@ function getFiltered() {
     if (fa === 'mine'       && b.assigned_to !== currentUser?.id) return false;
     if (fa === 'unassigned' && b.assigned_to)                     return false;
     if (fa && fa !== 'mine' && fa !== 'unassigned' && b.assigned_to !== fa) return false;
-    if (q && !b.title.toLowerCase().includes(q) && !(b.name||'').toLowerCase().includes(q)) return false;
+    if (q) {
+      const inTitle = b.title.toLowerCase().includes(q);
+      const inName  = (b.name||'').toLowerCase().includes(q);
+      const inRepro = (b.repro||'').toLowerCase().includes(q);
+      const inExp   = (b.expected||'').toLowerCase().includes(q);
+      if (!inTitle && !inName && !inRepro && !inExp) return false;
+      b._searchRank = inTitle ? 0 : 1;
+    } else {
+      b._searchRank = 0;
+    }
     return true;
   });
 
   list.sort((a,b) => {
+    if (q && a._searchRank !== b._searchRank) return a._searchRank - b._searchRank;
     if (sort==='date-desc') return b.date - a.date;
     if (sort==='date-asc')  return a.date - b.date;
     if (sort==='sev-desc')  return (SEV[b.severity]||0)-(SEV[a.severity]||0);
@@ -263,6 +352,67 @@ function getFiltered() {
     return 0;
   });
   return list;
+}
+
+// Groups shown on the dashboard, top to bottom. Anything with an unknown
+// status falls into "open".
+const GROUPS = [
+  { key:'in-progress', label:'In progress', color:'var(--blue)'   },
+  { key:'open',        label:'Open',        color:'var(--text2)'  },
+  { key:'resolved',    label:'Resolved',    color:'var(--accent)' },
+  { key:'merged',      label:'Merged',      color:'var(--text3)'  },
+];
+
+let collapsedGroups = {};
+try { collapsedGroups = JSON.parse(localStorage.getItem('bt-collapsed') || '{}'); } catch(e) { collapsedGroups = {}; }
+
+function groupOf(b) {
+  const s = b.status || 'open';
+  return GROUPS.some(g => g.key === s) ? s : 'open';
+}
+
+function toggleGroup(key) {
+  collapsedGroups[key] = !collapsedGroups[key];
+  try { localStorage.setItem('bt-collapsed', JSON.stringify(collapsedGroups)); } catch(e) {}
+  renderList();
+}
+
+function bugCard(b, isAdmin) {
+  const ts  = new Date(b.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const sel = selected.has(b.id) ? 'sel' : '';
+  const mclass = b.status==='merged' ? 'merged' : '';
+  const stclass = 'st-' + groupOf(b);
+  const nUnread = unreadCountFor(b.id);
+  const fc  = (b.files||'').split(',').filter(Boolean).length;
+
+  const checkbox = isAdmin
+    ? `<input type="checkbox" ${sel?'checked':''} onclick="toggleSel(event,${b.id})" style="cursor:pointer;margin-top:3px;flex-shrink:0">`
+    : '';
+
+  const delBtn = isAdmin
+    ? `<button class="icon-btn del" onclick="event.stopPropagation();deleteBug(${b.id})">Remove</button>`
+    : '';
+
+  return `<div class="bug-card ${stclass} ${sel} ${mclass} ${nUnread?'unread':''}" id="card-${b.id}" onclick="openPanel(${b.id})">
+    <div class="bug-row">
+      ${checkbox}
+      <div class="bug-body">
+        <div class="bug-title">${nUnread ? '<span class="unread-dot" title="New comment"></span>' : ''}${b.title}</div>
+        <div class="bug-meta">
+          <span>${b.name||'Anonymous'}</span>
+          <span>${b.category||''}</span>
+          <span>${ts}</span>
+          ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
+          ${b.assigned_to ? `<span style="color:var(--blue)">&rarr; ${assigneeName(b.assigned_to) || 'Unknown'}</span>` : ''}
+        </div>
+      </div>
+      <div class="bug-right" onclick="event.stopPropagation()">
+        <span class="badge b-${b.severity}">${b.severity}</span>
+        <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status||'open'}</span>
+        ${delBtn}
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderList() {
@@ -274,39 +424,18 @@ function renderList() {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  el.innerHTML = list.map(b => {
-    const ts  = new Date(b.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-    const sel = selected.has(b.id) ? 'sel' : '';
-    const mclass = b.status==='merged' ? 'merged' : '';
-    const fc  = (b.files||'').split(',').filter(Boolean).length;
-
-    const checkbox = isAdmin
-      ? `<input type="checkbox" ${sel?'checked':''} onclick="toggleSel(event,${b.id})" style="cursor:pointer;margin-top:3px;flex-shrink:0">`
-      : '';
-
-    const delBtn = isAdmin
-      ? `<button class="icon-btn del" onclick="event.stopPropagation();deleteBug(${b.id})">Remove</button>`
-      : '';
-
-    return `<div class="bug-card ${sel} ${mclass}" id="card-${b.id}" onclick="openPanel(${b.id})">
-      <div class="bug-row">
-        ${checkbox}
-        <div class="bug-body">
-          <div class="bug-title">${b.title}</div>
-          <div class="bug-meta">
-            <span>${b.name||'Anonymous'}</span>
-            <span>${b.category||''}</span>
-            <span>${ts}</span>
-            ${fc ? `<span>${fc} file${fc>1?'s':''}</span>` : ''}
-            ${b.assigned_to ? `<span style="color:var(--blue)">→ ${assigneeName(b.assigned_to) || 'Unknown'}</span>` : ''}
-          </div>
-        </div>
-        <div class="bug-right" onclick="event.stopPropagation()">
-          <span class="badge b-${b.severity}">${b.severity}</span>
-          <span class="badge b-${(b.status||'open').replace(' ','-')}">${b.status||'open'}</span>
-          ${delBtn}
-        </div>
+  el.innerHTML = GROUPS.map(g => {
+    const items = list.filter(b => groupOf(b) === g.key);
+    if (!items.length) return '';
+    const isCollapsed = !!collapsedGroups[g.key];
+    return `<div class="group ${isCollapsed?'collapsed':''}">
+      <div class="group-head" onclick="toggleGroup('${g.key}')">
+        <span class="group-chevron">&#9662;</span>
+        <span class="group-dot" style="background:${g.color}"></span>
+        <span class="group-title">${g.label}</span>
+        <span class="group-count">${items.length}</span>
       </div>
+      <div class="group-body">${items.map(b => bugCard(b, isAdmin)).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -337,8 +466,12 @@ async function doMerge() {
   const ids     = [...selected];
   const primary = ids[0];
   const rest    = ids.slice(1);
+  const primaryBug = bugs.find(x => x.id === primary);
+  const primaryLabel = primaryBug ? `"${primaryBug.title}" (#${primary})` : `#${primary}`;
   for (const id of rest) {
     await db.from('bugreports').update({ status: 'merged', merged_into: primary }).eq('id', id);
+    await logActivity(id, `Merged into report ${primaryLabel}`);
+    await logActivity(primary, `Report #${id} was merged into this report`);
   }
   toast('Merged ' + rest.length + ' report' + (rest.length>1?'s':'') + ' into #' + primary);
   clearSel(); await fetchAndRender();
@@ -349,6 +482,15 @@ async function doMerge() {
 
 async function deleteBug(id) {
   if (currentUser?.role !== 'admin') return;
+  const bug = bugs.find(b => b.id === id);
+  const fileUrls = (bug?.files || '').split(',').filter(Boolean);
+  if (fileUrls.length) {
+    const paths = fileUrls.map(url => url.split('/bug-attachments/')[1]).filter(Boolean);
+    if (paths.length) {
+      const { data: removed, error: storageErr } = await db.storage.from('bug-attachments').remove(paths);
+      if (storageErr || !removed?.length) { toast('Could not delete attachments from storage', true); return; }
+    }
+  }
   await db.from('bugreports').delete().eq('id', id);
   bugs = bugs.filter(b => b.id !== id);
   selected.delete(id); updateMergeBar();
@@ -363,6 +505,7 @@ function openPanel(id) {
   const b = bugs.find(x => x.id === id);
   if (!b) return;
   openId = id;
+  markBugRead(id);
 
   const isAdmin = currentUser?.role === 'admin';
   const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'developer';
@@ -375,6 +518,18 @@ function openPanel(id) {
   const statusField = canEdit
     ? `<select style="width:auto;margin-top:4px" onchange="changeStatus(${b.id}, this.value)">${opts}</select>`
     : `<div class="field-val">${b.status||'open'}</div>`;
+
+  const severities  = ['low','medium','high','critical'];
+  const sevOpts     = severities.map(s => `<option value="${s}" ${b.severity===s?'selected':''}>${s}</option>`).join('');
+  const severityField = canEdit
+    ? `<select style="width:auto;margin-top:4px" onchange="changeSeverity(${b.id}, this.value)">${sevOpts}</select>`
+    : `<div class="field-val">${b.severity||'medium'}</div>`;
+
+  const categories  = ['Gameplay','Networking / multiplayer','UI / HUD','Audio','Performance / crashes','Visuals / rendering','Bug reporting tool','Other'];
+  const catOpts     = categories.map(c => `<option value="${c}" ${b.category===c?'selected':''}>${c}</option>`).join('');
+  const categoryField = canEdit
+    ? `<select style="width:auto;margin-top:4px" onchange="changeCategory(${b.id}, this.value)">${catOpts}</select>`
+    : `<div class="field-val">${b.category||'—'}</div>`;
 
   const assigneeOpts = staffProfiles
     .map(p => `<option value="${p.id}" ${b.assigned_to===p.id?'selected':''}>${p.display_name||p.email}</option>`)
@@ -406,24 +561,195 @@ function openPanel(id) {
       ${statusField}
     </div>
     <div style="margin-bottom:12px">
+      <div class="field-label">Severity</div>
+      ${severityField}
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="field-label">Category</div>
+      ${categoryField}
+    </div>
+    <div style="margin-bottom:12px">
       <div class="field-label">Assigned to</div>
       ${assigneeField}
     </div>
     <div class="divider"></div>
     <div style="margin-bottom:12px"><div class="field-label">How to reproduce</div><div class="field-val">${b.repro||'—'}</div></div>
     <div style="margin-bottom:12px"><div class="field-label">Expected vs actual</div><div class="field-val">${b.expected||'—'}</div></div>
-    ${fc.length ? `<div style="margin-bottom:12px"><div class="field-label">Attachments</div><div class="file-pills" style="margin-top:6px">${fc.map(f=>`<div class="pill">${f}</div>`).join('')}</div></div>` : ''}
+    ${renderAttachments(fc)}
     ${b.merged_into ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Merged into report #${b.merged_into}</div>` : ''}
     ${deleteBtn}
+    <div class="divider"></div>
+    <div class="comments-section">
+      <div class="field-label" style="margin-bottom:10px">Activity &amp; comments</div>
+      <div class="comment-list" id="comment-list"><div class="comment-empty">Loading…</div></div>
+      ${currentUser ? `
+      <div class="comment-input-wrap">
+        <textarea id="comment-input" placeholder="Leave a comment…"></textarea>
+        <button class="btn-primary" style="margin-top:0" onclick="postComment(${b.id})">Post comment</button>
+      </div>` : ''}
+    </div>
   `;
   document.getElementById('panel').classList.add('open');
+  loadComments(b.id);
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+// A notification is created when someone comments on a report they did not
+// submit. Recipients are the report's author and its assignee, minus the
+// commenter. Unread ones highlight the report on the dashboard until opened.
+
+async function loadNotifications() {
+  if (!currentUser) return;
+  const { data, error } = await db
+    .from('notifications')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .is('read_at', null)
+    .order('created_at', { ascending: false });
+  if (error) { notifications = []; return; } // table not created yet — fail quiet
+  notifications = data || [];
+}
+
+function unreadCountFor(bugId) {
+  return notifications.filter(n => n.bug_id === bugId).length;
+}
+
+// Only count what the user can actually click through to clear.
+function visibleUnread() {
+  return notifications.filter(n => bugs.some(b => b.id === n.bug_id));
+}
+
+function renderNotifBadge() {
+  const el = document.getElementById('notif-badge');
+  if (!el) return;
+  const n = visibleUnread().length;
+  el.innerHTML = n
+    ? `<button class="notif-badge" onclick="markAllRead()" title="Mark all as read">${n} new</button>`
+    : '';
+}
+
+// Notify the report's author and assignee, skipping whoever is commenting.
+async function notifyWatchers(bugId, body, commentId) {
+  const b = bugs.find(x => x.id === bugId);
+  if (!b) return;
+
+  const recipients = [...new Set([b.user_id, b.assigned_to])]
+    .filter(uid => uid && uid !== currentUser.id);
+  if (!recipients.length) return;
+
+  const preview = body.length > 140 ? body.slice(0, 140) + '…' : body;
+  const { error } = await db.from('notifications').insert(
+    recipients.map(uid => ({
+      user_id: uid,
+      bug_id: bugId,
+      comment_id: commentId ?? null,
+      actor_name: currentUser.display_name || currentUser.email,
+      body: preview,
+      read_at: null,
+      created_at: Date.now()
+    }))
+  );
+  // A failed notification must never lose the comment that triggered it.
+  if (error) console.warn('Could not create notification:', error.message);
+}
+
+async function markBugRead(bugId) {
+  const mine = notifications.filter(n => n.bug_id === bugId);
+  if (!mine.length) return;
+
+  notifications = notifications.filter(n => n.bug_id !== bugId);
+  renderNotifBadge();
+  document.getElementById('card-' + bugId)?.classList.remove('unread');
+
+  await db.from('notifications')
+    .update({ read_at: Date.now() })
+    .eq('user_id', currentUser.id)
+    .eq('bug_id', bugId)
+    .is('read_at', null);
+}
+
+async function markAllRead() {
+  if (!notifications.length) return;
+  notifications = [];
+  renderNotifBadge(); renderList();
+
+  await db.from('notifications')
+    .update({ read_at: Date.now() })
+    .eq('user_id', currentUser.id)
+    .is('read_at', null);
+  toast('All caught up');
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+async function loadComments(bugId) {
+  const listEl = document.getElementById('comment-list');
+  if (!listEl) return;
+
+  const { data, error } = await db
+    .from('comments')
+    .select('*')
+    .eq('bug_id', bugId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) { listEl.innerHTML = '<div class="comment-empty">Could not load comments.</div>'; return; }
+  if (data.length === 0) { listEl.innerHTML = '<div class="comment-empty">No comments yet.</div>'; return; }
+
+  listEl.innerHTML = data.map(c => {
+    const time = new Date(c.created_at).toLocaleString('en-GB');
+    return `<div class="comment ${c.is_activity ? 'activity' : ''}">
+      <div class="comment-meta">
+        <span class="comment-author">${c.display_name || 'Unknown'}</span>
+        <span class="comment-time">${time}</span>
+      </div>
+      <div class="comment-body">${c.body}</div>
+    </div>`;
+  }).join('');
+}
+
+async function postComment(bugId) {
+  const input = document.getElementById('comment-input');
+  const body = input?.value.trim();
+  if (!body) return;
+
+  const btn = document.querySelector('#panel .btn-primary');
+  btn.disabled = true; btn.textContent = 'Posting…';
+
+  const { data, error } = await db.from('comments').insert({
+    bug_id: bugId,
+    user_id: currentUser.id,
+    display_name: currentUser.display_name || currentUser.email,
+    body,
+    is_activity: false,
+    created_at: Date.now()
+  }).select('id').single();
+
+  btn.disabled = false; btn.textContent = 'Post comment';
+
+  if (error) { toast('Failed to post comment', true); return; }
+  input.value = '';
+  await notifyWatchers(bugId, body, data?.id);
+  await loadComments(bugId);
+}
+
+async function logActivity(bugId, message) {
+  await db.from('comments').insert({
+    bug_id: bugId,
+    user_id: currentUser.id,
+    display_name: currentUser.display_name || currentUser.email,
+    body: message,
+    is_activity: true,
+    created_at: Date.now()
+  });
 }
 
 async function changeStatus(id, val) {
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
-  await db.from('bugreports').update({ status: val }).eq('id', id);
   const b = bugs.find(x => x.id === id);
+  const prev = b?.status || 'open';
+  await db.from('bugreports').update({ status: val }).eq('id', id);
   if (b) b.status = val;
+  await logActivity(id, `Changed status from "${prev}" to "${val}"`);
   renderStats(); renderList(); openPanel(id);
   toast('Status updated to ' + val);
 }
@@ -431,12 +757,38 @@ async function changeStatus(id, val) {
 async function changeAssignee(id, userId) {
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
   const val = userId || null;
-  await db.from('bugreports').update({ assigned_to: val }).eq('id', id);
   const b = bugs.find(x => x.id === id);
+  const prevName = assigneeName(b?.assigned_to) || 'nobody';
+  await db.from('bugreports').update({ assigned_to: val }).eq('id', id);
   if (b) b.assigned_to = val;
+  const newName = val ? assigneeName(val) : 'nobody';
+  await logActivity(id, `Changed assignee from "${prevName}" to "${newName}"`);
   renderList(); openPanel(id);
-  const name = val ? assigneeName(val) : 'nobody';
-  toast('Assigned to ' + name);
+  toast('Assigned to ' + newName);
+}
+
+async function changeCategory(id, val) {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
+  const b = bugs.find(x => x.id === id);
+  const prev = b?.category || 'Other';
+  if (prev === val) return;
+  await db.from('bugreports').update({ category: val }).eq('id', id);
+  if (b) b.category = val;
+  await logActivity(id, `Changed category from "${prev}" to "${val}"`);
+  renderList(); openPanel(id);
+  toast('Category updated to ' + val);
+}
+
+async function changeSeverity(id, val) {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'developer') return;
+  const b = bugs.find(x => x.id === id);
+  const prev = b?.severity || 'medium';
+  if (prev === val) return;
+  await db.from('bugreports').update({ severity: val }).eq('id', id);
+  if (b) b.severity = val;
+  await logActivity(id, `Changed severity from "${prev}" to "${val}"`);
+  renderStats(); renderList(); openPanel(id);
+  toast('Severity updated to ' + val);
 }
 
 function closePanel() {
@@ -488,6 +840,7 @@ async function loadAndRenderUsers() {
         <option value="admin"     ${u.role==='admin'     ?'selected':''}>Admin</option>
       </select>
     `;
+    const resetPwdBtn = `<button class="icon-btn" onclick="sendPasswordReset('${u.email}', '${(u.display_name||u.email).replace(/'/g,"\\'")}')">Reset pwd</button>`;
     const removeBtn = isSelf
       ? `<span style="font-size:11px;color:var(--text3)">(you)</span>`
       : `<button class="icon-btn del" onclick="removeUser('${u.id}', '${(u.display_name||u.email).replace(/'/g,"\\'")}')">Remove</button>`;
@@ -499,6 +852,7 @@ async function loadAndRenderUsers() {
       </div>
       <span class="role-badge role-${u.role}" id="rbadge-${u.id}">${u.role}</span>
       ${roleSelect}
+      ${resetPwdBtn}
       ${removeBtn}
     </div>`;
   }).join('');
@@ -517,7 +871,7 @@ async function createUser() {
   btn.disabled = true; btn.textContent = 'Creating...';
 
   // Use a non-persistent client so the admin session is not replaced
-  const tmp = createClient(SUPA_URL, SUPA_KEY, {
+  const tmp = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
 
@@ -534,7 +888,8 @@ async function createUser() {
     id: userId,
     email,
     display_name: name || null,
-    role
+    role,
+    must_reset_password: true
   });
 
   if (pe) { toast('Auth user created but profile failed: ' + pe.message, true); return; }
@@ -557,10 +912,66 @@ async function updateUserRole(id, role) {
 
 async function removeUser(id, label) {
   if (!confirm(`Remove ${label}? They will lose dashboard access immediately.`)) return;
-  const { error } = await db.from('profiles').delete().eq('id', id);
-  if (error) { toast('Failed to remove user', true); return; }
-  toast(`${label} removed`);
+  const { error: profileErr } = await db.from('profiles').delete().eq('id', id);
+  if (profileErr) { toast('Failed to remove user', true); return; }
+  const { error: authErr } = await db.rpc('delete_auth_user', { user_id: id });
+  if (authErr) { toast(`Profile removed but auth user could not be deleted: ${authErr.message}`, true); }
+  else { toast(`${label} removed`); }
   await loadAndRenderUsers();
+}
+
+async function doResetPassword() {
+  const pass  = document.getElementById('r-pass').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const errEl = document.getElementById('reset-err');
+  const btn   = document.getElementById('reset-btn');
+  errEl.style.display = 'none';
+
+  if (pass.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.';
+    errEl.style.display = 'block'; return;
+  }
+  if (pass !== pass2) {
+    errEl.textContent = 'Passwords do not match.';
+    errEl.style.display = 'block'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { error } = await db.auth.updateUser({ password: pass });
+  btn.disabled = false; btn.textContent = 'Set password';
+
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block'; return;
+  }
+
+  document.getElementById('r-pass').value = '';
+  document.getElementById('r-pass2').value = '';
+
+  // First-login flow: clear the flag and go straight to the dashboard
+  if (currentUser?.must_reset_password) {
+    await db.from('profiles').update({ must_reset_password: false }).eq('id', currentUser.id);
+    currentUser.must_reset_password = false;
+    document.getElementById('reset-title').textContent = 'Set new password';
+    document.getElementById('reset-subtitle').textContent = 'Enter your new password below.';
+    toast('Password set. Welcome!');
+    showView('staff', document.getElementById('nav-staff'));
+    showDashboard();
+    return;
+  }
+
+  await db.auth.signOut();
+  toast('Password updated. Please log in.');
+  showView('staff', document.getElementById('nav-staff'));
+}
+
+async function sendPasswordReset(email, label) {
+  if (!confirm(`Send a password reset email to ${label} (${email})?`)) return;
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  if (error) { toast('Failed to send reset email: ' + error.message, true); return; }
+  toast(`Password reset email sent to ${email}`);
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────

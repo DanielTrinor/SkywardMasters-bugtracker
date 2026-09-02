@@ -42,6 +42,7 @@ The tool has two sides:
 | `files` | text | Comma-separated public storage URLs |
 | `merged_into` | bigint | ID of the primary report this was merged into, nullable |
 | `assigned_to` | uuid | FK to `profiles.id`, nullable |
+| `user_id` | uuid | Submitter's auth user, nullable — only set when the reporter was logged in. Anonymous public submissions are `null`. Testers' dashboards filter on this. |
 | `date` | bigint | Unix timestamp in milliseconds |
 
 ### `profiles`
@@ -70,6 +71,23 @@ Activity log and comments per bug report.
 | `is_activity` | boolean | True = auto-generated activity entry, False = manual comment |
 | `created_at` | bigint | Unix timestamp in milliseconds |
 
+### `notifications`
+
+Unread markers driving the dashboard highlight. A row is created when someone comments on a report they did not submit.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigserial | Primary key |
+| `user_id` | uuid | Recipient — FK to `auth.users.id`, cascades on delete |
+| `bug_id` | bigint | FK to `bugreports.id` — cascades on delete |
+| `comment_id` | bigint | FK to `comments.id`, nullable |
+| `actor_name` | text | Who triggered it, snapshotted like `comments.display_name` |
+| `body` | text | Comment preview, truncated to 140 chars |
+| `read_at` | bigint | Null = unread. Unix timestamp in milliseconds |
+| `created_at` | bigint | Unix timestamp in milliseconds |
+
+Schema and policies live in `supabase/notifications.sql` — run once in the SQL editor. Until it is run, `loadNotifications()` fails quietly and the app behaves as if there are no notifications.
+
 ### Supabase functions (run in SQL editor)
 
 Two custom Postgres functions exist:
@@ -82,6 +100,7 @@ RLS is **enabled** on `bugreports`, `comments`, and `profiles`. The full policy 
 - `bugreports`: public INSERT (submit form), authenticated SELECT, admin/developer UPDATE, admin DELETE
 - `comments`: authenticated SELECT and INSERT (staff only, insert only as themselves)
 - `profiles`: authenticated SELECT, admin INSERT/UPDATE/DELETE, users can UPDATE their own row
+- `notifications`: users SELECT/UPDATE/DELETE only their own rows; any authenticated user can INSERT a row *for someone else* (deliberately permissive — the recipient is by definition another user), constrained to real `bug_id`s and to `auth.uid() <> user_id`
 
 ---
 
@@ -103,6 +122,7 @@ RLS is **enabled** on `bugreports`, `comments`, and `profiles`. The full policy 
 - Select multiple reports and merge as duplicates
 - Remove individual reports (admin only, also removes attachments from storage)
 - Activity log + comments in the detail panel — comments posted manually by staff, activity entries auto-logged for: status changes, assignee changes, merges
+- Comment notifications — commenting on a report notifies its reporter and assignee (never yourself). Unread reports are highlighted amber with a dot on the dashboard, with an "N new" badge in the header; opening a report clears its notifications, and the badge doubles as "mark all read". Only reaches reporters who were logged in when they submitted — anonymous reports have no `user_id` and cannot be notified.
 - Toast notifications for actions
 - Dark theme UI
 
@@ -137,9 +157,12 @@ An in-game widget in Skyward Masters (Unreal Engine 5, Blueprint-only workflow) 
 ## Repo structure
 
 ```
-index.html           — the entire frontend app
+index.html           — markup
+styles.css           — all styles
+app.js               — all logic
 supabase/
   rls-policies.sql   — all RLS policies and helper functions to run in Supabase SQL editor
+  notifications.sql  — notifications table + policies, run once after rls-policies.sql
 CLAUDE.md            — this file
 ```
 
