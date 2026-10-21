@@ -126,7 +126,7 @@ function showDashboard() {
   document.getElementById('dash-user').innerHTML = `
     <span id="notif-badge"></span>
     <span class="role-badge role-${currentUser.role}">${currentUser.role}</span>
-    <span style="font-size:12px;color:var(--text2)">${currentUser.display_name || currentUser.email}</span>
+    <span id="dash-user-name" style="font-size:12px;color:var(--text2)">${currentUser.display_name || currentUser.email}</span>
     ${adminBtn}
     <button class="logout-btn" onclick="doLogout()">Log out</button>
   `;
@@ -852,6 +852,7 @@ async function loadAndRenderUsers() {
         <option value="admin"     ${u.role==='admin'     ?'selected':''}>Admin</option>
       </select>
     `;
+    const renameBtn = `<button class="icon-btn" onclick="renameUser('${u.id}', '${(u.display_name||'').replace(/'/g,"\\'")}')">Rename</button>`;
     const resetPwdBtn = `<button class="icon-btn" onclick="sendPasswordReset('${u.email}', '${(u.display_name||u.email).replace(/'/g,"\\'")}')">Reset pwd</button>`;
     const removeBtn = isSelf
       ? `<span style="font-size:11px;color:var(--text3)">(you)</span>`
@@ -864,6 +865,7 @@ async function loadAndRenderUsers() {
       </div>
       <span class="role-badge role-${u.role}" id="rbadge-${u.id}">${u.role}</span>
       ${roleSelect}
+      ${renameBtn}
       ${resetPwdBtn}
       ${removeBtn}
     </div>`;
@@ -920,6 +922,24 @@ async function updateUserRole(id, role) {
   const badge = document.getElementById('rbadge-' + id);
   if (badge) { badge.className = `role-badge role-${role}`; badge.textContent = role; }
   toast('Role updated');
+}
+
+async function renameUser(id, currentName) {
+  const input = prompt('New display name (leave empty to show email instead):', currentName);
+  if (input === null) return; // cancelled
+  const name = input.trim() || null;
+  if (name === (currentName || null)) return;
+
+  const { error } = await db.from('profiles').update({ display_name: name }).eq('id', id);
+  if (error) { toast('Failed to rename user', true); return; }
+
+  if (id === currentUser.id) {
+    currentUser.display_name = name;
+    const el = document.getElementById('dash-user-name');
+    if (el) el.textContent = name || currentUser.email;
+  }
+  toast('Display name updated');
+  await Promise.all([loadAndRenderUsers(), loadStaffProfiles()]);
 }
 
 async function removeUser(id, label) {
